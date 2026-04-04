@@ -1,0 +1,24 @@
+node_modules/
+out/
+*.vsix
+.vscode-test/
+*.js.map
+
+# VSCode workspace settings may contain API keys — never commit
+.vscode/settings.json
+.vscode/launch.json
+
+# Environment files
+.env
+.env.*
+
+# Screenshots and reference images not intended for the repo
+*.png
+*.jpg
+*.jpeg
+*.webp
+!media/icon.png
+
+# Logs
+*.log
+npm-debug.log*

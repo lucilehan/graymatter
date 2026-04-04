@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Content Security Policy: lock down resource origins for the webview -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  style-src 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  script-src 'unsafe-inline';
+  img-src data: blob:;
+  connect-src 'none';
+">
+<title>GrayMatter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg-deep: #1a1a1a;
+    --bg-mid: #222222;
+    --surface: #2a2a2a;
+    --border: #3a3a3a;
+    --fg: #e0e0e0;
+    --muted: #888888;
+    --accent: #ffffff;
+    --accent-mid: #cccccc;
+    --accent-pale: #e8e8e8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--fg);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    z-index: 10;
+    position: relative;
+  }
+  header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .header-left { display: flex; align-items: baseline; gap: 8px; min-width: 0; overflow: hidden; flex: 1; }
+  .tagline {
+    font-size: 11px; color: var(--muted); font-weight: 400;
+    letter-spacing: 0.3px; opacity: 0.7;
+    white-space: nowrap; overflow: hidden; max-width: 200px; flex-shrink: 1;
+    transition: opacity 0.25s cubic-bezier(0.4,0,0.2,1), max-width 0.25s cubic-bezier(0.4,0,0.2,1);
+  }
+  header .total {
+    font-size: 11px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; max-width: 150px;
+    flex-shrink: 0; margin-left: 8px; transition: none;
+  }
+  header .total strong {
+    color: var(--accent-pale); font-size: 14px;
+  }
+  #sort-btn {
+    background: none; border: 1px solid #3a3a3a; border-radius: 5px;
+    color: #888; font-size: 10px; font-family: inherit; cursor: pointer;
+    padding: 2px 7px; white-space: nowrap; transition: color 0.15s, border-color 0.15s;
+    letter-spacing: 0.3px;
+  }
+  #sort-btn:hover { color: #bbb; border-color: #555; }
+
+  .actions-btn {
+    background: none; border: 1px solid transparent; border-radius: 5px;
+    color: #777; font-size: 16px; font-family: inherit; cursor: pointer;
+    padding: 1px 6px; line-height: 1; letter-spacing: 1px;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+  .actions-btn:hover { color: #bbb; border-color: #3a3a3a; background: rgba(255,255,255,0.04); }
+
+  .actions-menu {
+    position: fixed; background: #2a2a2a; border: 1px solid var(--border);
+    border-radius: 8px; z-index: 300; min-width: 190px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.5); padding: 4px;
+    opacity: 0; pointer-events: none; transform: translateY(-4px);
+    transition: opacity 0.12s, transform 0.12s;
+  }
+  .actions-menu.visible { opacity: 1; pointer-events: all; transform: translateY(0); }
+  .actions-menu-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 7px 10px; border-radius: 5px; background: none; border: none;
+    color: var(--fg); font-family: inherit; font-size: 11px; cursor: pointer;
+    text-align: left; transition: background 0.1s; white-space: nowrap;
+  }
+  .actions-menu-item:hover { background: rgba(255,255,255,0.07); }
+  .actions-menu-item .item-icon { font-size: 12px; opacity: 0.65; width: 16px; text-align: center; flex-shrink: 0; }
+  .actions-menu-sep { height: 1px; background: var(--border); margin: 4px 2px; }
+  .actions-menu-label {
+    font-size: 9px; color: var(--muted); padding: 5px 10px 2px;
+    letter-spacing: 0.6px; text-transform: uppercase; opacity: 0.5;
+  }
+
+  #brain-actions-btn {
+    position: absolute; top: 8px; right: 8px; z-index: 5;
+  }
+
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  #canvas-area {
+    flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; overflow: hidden;
+  }
+
+  /* ── Wide (editor pane) layout: brain left, memories right ── */
+  body.wide #main { flex-direction: row; }
+  body.wide #canvas-area {
+    flex: none; width: 50%; height: 100%; min-height: 0; min-width: 200px;
+    border-right: 1px solid var(--border);
+  }
+  body.wide #sidebar {
+    flex: 1; height: 100%; min-height: unset; max-height: unset;
+  }
+  body.wide #resize-handle {
+    width: 10px; height: 100%; cursor: col-resize;
+    border-left: none; border-right: none;
+    border-top: none; border-bottom: none;
+    flex-direction: column;
+  }
+  body.wide #resize-handle::before {
+    height: 40px; width: 3px;
+    background-image: radial-gradient(circle, var(--muted) 1.5px, transparent 1.5px);
+    background-size: 3px 8px; background-repeat: repeat-y;
+  }
+  body.wide #resize-handle::after {
+    height: 100%; top: 0; width: 20px; left: -5px;
+  }
+  #canvas-container {
+    flex: 1; min-height: 0; position: relative; cursor: grab; overflow: hidden;
+  }
+  #canvas-container:active { cursor: grabbing; }
+  canvas { width: 100%; height: 100%; display: block; }
+
+  .instruction {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    flex-shrink: 0; padding: 5px 10px 4px;
+    background: #2e2e2e; border-bottom: 1px solid #3a3a3a;
+    font-size: 10px; white-space: nowrap;
+    color: #aaaaaa; font-family: 'Space Grotesk', sans-serif; letter-spacing: 0.6px;
+  }
+  .instruction-dismiss {
+    background: none; border: none; cursor: pointer; padding: 0 2px;
+    color: #777; font-size: 13px; line-height: 1; flex-shrink: 0;
+    transition: color 0.15s;
+  }
+  .instruction-dismiss:hover { color: #bbb; }
+
+  #legend {
+    display: flex; gap: 2px; padding: 8px 12px; flex-wrap: wrap; align-items: center; justify-content: center;
+    background: var(--surface); border-bottom: 1px solid var(--border); position: relative;
+  }
+  #role-badge {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 10px; color: var(--muted); opacity: 0.55; white-space: nowrap;
+    font-family: 'Space Grotesk', sans-serif; letter-spacing: 0.4px;
+    cursor: pointer; transition: opacity 0.15s; background: none; border: none;
+  }
+  #role-badge:hover { opacity: 1; }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 6px; font-size: 10px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s; border: 1px solid transparent; opacity: 0.55;
+  }
+  .legend-item:hover, .legend-item.active {
+    opacity: 1; background: rgba(255,255,255,0.06); border-color: var(--border);
+  }
+  .legend-item .swatch { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-item .lcount { font-size: 9px; opacity: 0.5; margin-left: 2px; }
+
+  #tooltip {
+    position: absolute; padding: 10px 14px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px; pointer-events: none;
+    opacity: 0; transition: opacity 0.12s; max-width: 260px; z-index: 10;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip .tt-label { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  #tooltip .tt-desc { font-size: 11px; opacity: 0.5; margin-bottom: 6px; }
+  #tooltip .tt-count { font-size: 11px; opacity: 0.7; color: var(--accent-pale); }
+  #tooltip .tt-count strong { font-size: 16px; }
+  #tooltip .tt-examples { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 10px; opacity: 0.35; line-height: 1.5; }
+
+  #sidebar {
+    height: 160px; background: var(--surface);
+    display: flex; flex-direction: column; overflow: hidden; min-height: 120px; max-height: 60vh;
+  }
+  #sidebar-header {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; overflow: hidden;
+  }
+  #sidebar-header h3 {
+    font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #sidebar-header h3 .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  #sidebar-header .desc {
+    font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: opacity 0.25s cubic-bezier(0.4,0,0.2,1), max-height 0.25s cubic-bezier(0.4,0,0.2,1);
+    max-height: 20px;
+  }
+  .mem-count {
+    font-size: 11px; color: var(--muted); white-space: nowrap; flex-shrink: 0;
+    transition: none;
+    overflow: hidden; max-width: 120px;
+  }
+
+  /* Resize handle */
+  #resize-handle {
+    height: 12px; cursor: row-resize; background: var(--bg-mid);
+    flex-shrink: 0; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  #resize-handle:hover, #resize-handle.active { background: var(--surface); }
+  #resize-handle::before {
+    content: ''; height: 3px; width: 40px;
+    background-image: radial-gradient(circle, var(--muted) 1.5px, transparent 1.5px);
+    background-size: 8px 3px;
+    background-repeat: repeat-x;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+  }
+  #resize-handle:hover::before, #resize-handle.active::before { opacity: 1; }
+  #resize-handle::after {
+    content: ''; position: absolute; inset: 0; height: 20px; top: -4px;
+  }
+
+  /* Search bar */
+  #search-bar {
+    padding: 7px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #search-input {
+    width: 100%; background: var(--bg-deep); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--fg); font-family: inherit; font-size: 11px;
+    padding: 5px 10px; outline: none; box-sizing: border-box; transition: border-color 0.15s;
+  }
+  #search-input::placeholder { color: var(--muted); opacity: 0.6; }
+  #search-input:focus { border-color: #555; }
+
+  /* Tag clickable */
+  .memory-card .tag { cursor: pointer; }
+  .memory-card .tag:hover { opacity: 1; border-color: #666; }
+
+  /* Footer with add button */
+  #sidebar-footer {
+    padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .add-btn {
+    width: 100%; padding: 7px 14px; border: 1px solid var(--border); background: none;
+    color: var(--accent); font-size: 11px; border-radius: 6px; cursor: pointer;
+    font-family: inherit; font-weight: 500; transition: all 0.15s;
+    text-align: center;
+  }
+  .add-btn:hover { background: rgba(180, 180, 180, 0.12); color: var(--fg); border-color: rgba(180, 180, 180, 0.4); }
+
+  #memories-list { flex: 1; overflow-y: auto; padding: 8px; }
+  #memories-list::-webkit-scrollbar { width: 4px; }
+  #memories-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .memory-card {
+    background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 6px; position: relative;
+    transition: border-color 0.15s, transform 0.1s; border-left: 3px solid var(--border);
+  }
+  .memory-card:hover { border-color: var(--accent); transform: translateX(2px); }
+  .memory-card .summary {
+    font-size: 12px; line-height: 1.5; margin-bottom: 5px; padding-right: 60px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .memory-card .meta {
+    font-size: 10px; opacity: 0.35; display: flex; justify-content: space-between;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .memory-card .tags { display: flex; gap: 4px; flex-wrap: nowrap; margin-top: 5px; overflow: hidden; }
+  .memory-card .tag { font-size: 9px; padding: 2px 7px; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 12px; opacity: 0.6; flex-shrink: 0; }
+  .forget-btn {
+    position: absolute; top: 8px; right: 8px; background: none; border: 1px solid transparent;
+    color: var(--muted); cursor: pointer; opacity: 0; font-size: 10px;
+    padding: 2px 8px; border-radius: 4px; transition: all 0.15s; font-family: inherit;
+    letter-spacing: 0.5px;
+  }
+  .memory-card:hover .forget-btn { opacity: 0.5; }
+  .forget-btn:hover {
+    opacity: 1 !important; background: rgba(255,80,80,0.1);
+    color: #ff6b6b; border-color: rgba(255,80,80,0.2);
+  }
+  .importance-bar { width: 100%; margin-top: 6px; }
+  .importance-bar .track { width: 100%; height: 2px; background: var(--border); border-radius: 1px; }
+  .importance-bar .fill { height: 100%; border-radius: 1px; transition: width 0.3s; }
+  .importance-bar .pct { font-size: 9px; opacity: 0.35; display: block; text-align: right; margin-top: 2px; }
+  .empty-state { text-align: center; padding: 40px 20px; opacity: 0.25; font-size: 12px; line-height: 2; }
+  .model-badge {
+    position: absolute; bottom: 8px; right: 8px;
+    font-size: 8px; padding: 2px 6px; border-radius: 10px;
+    background: var(--bg-mid); border: 1px solid var(--border);
+    color: var(--muted); font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(4px);
+  }
+  .modal-overlay.visible { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 24px; width: 420px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal h3 { font-size: 15px; margin-bottom: 14px; font-weight: 600; color: var(--accent-pale); }
+  .modal textarea {
+    width: 100%; height: 80px; background: var(--bg-deep); border: 1px solid var(--border);
+    color: var(--fg); font-family: inherit; font-size: 12px; padding: 12px;
+    border-radius: 8px; resize: vertical; outline: none;
+  }
+  .modal textarea:focus { border-color: var(--accent); }
+  .modal .hint { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+  #suggestions-row {
+    display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; min-height: 22px;
+  }
+  .suggestion-chip {
+    font-size: 10px; padding: 3px 9px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg-mid); color: var(--muted);
+    font-family: inherit; transition: all 0.12s; white-space: nowrap;
+  }
+  .suggestion-chip:hover { border-color: #555; color: var(--fg); background: #2a2a2a; }
+  .suggestion-chip.tag-chip { opacity: 0.75; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .modal-actions button {
+    padding: 7px 18px; border-radius: 7px; border: 1px solid var(--border); background: none;
+    color: var(--fg); font-family: inherit; font-size: 12px; cursor: pointer; font-weight: 500;
+  }
+  .modal-actions .primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .modal-actions .danger { background: none; border-color: rgba(255,80,80,0.3); color: #ff6b6b; }
+  .modal-actions .danger:hover { background: rgba(255,80,80,0.1); }
+  .role-card {
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+    transition: all 0.15s; background: var(--bg-deep); display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-family: inherit; color: var(--fg); text-align: left; width: 100%;
+  }
+  .role-card:hover { border-color: #555; background: var(--bg-mid); }
+  .role-card.selected { border-color: rgba(205,120,145,0.7); background: rgba(205,120,145,0.1); }
+  .role-card .role-emoji { font-size: 16px; flex-shrink: 0; }
+  .modal-actions button:disabled { opacity: 0.35; cursor: not-allowed; }
+  #edit-modal-overlay { z-index: 110; }
+  #edit-modal .field-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; margin-top: 10px; letter-spacing: 0.4px; }
+  #edit-modal .field-label:first-of-type { margin-top: 0; }
+  #edit-importance { width: 100%; accent-color: #cd7891; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>GrayMatter</h1>
+    <span class="tagline">agent memory traces</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+    <div class="total" id="total-count"></div>
+    <button class="actions-btn" id="header-actions-btn" title="More actions">⋯</button>
+  </div>
+</header>
+
+<div id="legend"><button id="role-badge" onclick="menuAction('changeRole')" title="Change role"></button></div>
+
+<div id="main">
+  <div id="canvas-area">
+    <button class="actions-btn" id="brain-actions-btn" title="More actions">⋯</button>
+    <div class="instruction" id="instruction-banner">
+      <span>drag to rotate · scroll to zoom · click a region</span>
+      <button class="instruction-dismiss" id="dismiss-banner" title="Dismiss">✕</button>
+    </div>
+    <div id="canvas-container">
+      <canvas id="brain-canvas"></canvas>
+      <div id="tooltip"></div>
+    </div>
+  </div>
+  <div id="resize-handle"></div>
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <div style="min-width:0;overflow:hidden;">
+        <h3 id="sidebar-title">Memories</h3>
+        <div class="desc" id="sidebar-desc"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <button id="sort-btn" title="Change sort order">↕ importance</button>
+        <span class="mem-count" id="sidebar-count"></span>
+      </div>
+    </div>
+    <div id="search-bar">
+      <input id="search-input" type="text" placeholder="Search memories…" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="memories-list">
+      <div class="empty-state">Click a region on the brain<br>or a category above to explore</div>
+    </div>
+    <div id="sidebar-footer">
+      <div style="display:flex;gap:5px;">
+        <button class="add-btn" style="width:auto;flex:1;padding:7px 6px;" onclick="showAddModal()">+ New Memory</button>
+        <button class="add-btn" style="width:auto;flex:1;padding:7px 6px;" onclick="vscode.postMessage({type:'scanWorkspace'})">⌕ Scan</button>
+        <button class="add-btn" style="width:auto;flex:1;padding:7px 6px;" onclick="vscode.postMessage({type:'writeToContextFile'})">↑ Export</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Shared actions dropdown -->
+<div class="actions-menu" id="actions-menu">
+  <div class="actions-menu-label">Memory</div>
+  <button class="actions-menu-item" onclick="menuAction('addMemory')"><span class="item-icon">+</span> New Memory</button>
+  <div class="actions-menu-sep"></div>
+  <div class="actions-menu-label">Workspace</div>
+  <button class="actions-menu-item" onclick="menuAction('scanWorkspace')"><span class="item-icon">⌕</span> Scan workspace</button>
+  <button class="actions-menu-item" onclick="menuAction('writeToContextFile')"><span class="item-icon">↑</span> Write to context file</button>
+  <div class="actions-menu-sep"></div>
+  <div class="actions-menu-label">Settings</div>
+  <button class="actions-menu-item" onclick="menuAction('changeRole')"><span class="item-icon">◈</span> Change role</button>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3>New Memory</h3>
+    <textarea id="memory-input" placeholder='e.g. "User prefers TypeScript and dark themes"'></textarea>
+    <div id="suggestions-row"></div>
+    <div class="hint">GrayMatter will automatically categorize this into the right brain region.</div>
+    <div class="modal-actions">
+      <button onclick="hideModal()">Cancel</button>
+      <button class="primary" onclick="addMemory()">Remember</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="edit-modal-overlay">
+  <div class="modal" id="edit-modal">
+    <h3>Edit Memory</h3>
+    <div class="field-label">CONTENT</div>
+    <textarea id="edit-content" style="height:90px;"></textarea>
+    <div class="field-label">TAGS <span style="opacity:0.4;font-size:9px;">(comma-separated)</span></div>
+    <input type="text" id="edit-tags" style="width:100%;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;color:var(--fg);font-family:inherit;font-size:12px;padding:8px 12px;outline:none;box-sizing:border-box;">
+    <div class="field-label">IMPORTANCE — <span id="edit-importance-val">50%</span></div>
+    <input type="range" id="edit-importance" min="0" max="100" value="50">
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button class="danger" onclick="deleteFromEdit()">Forget</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="hideEditModal()">Cancel</button>
+        <button class="primary" onclick="saveEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="onboarding-overlay" style="z-index:120;align-items:flex-start;padding-top:40px;">
+  <div class="modal" id="onboarding-modal" style="width:480px;">
+
+    <!-- Step 1: role -->
+    <div id="onboarding-step-1">
+      <h3 style="margin-bottom:6px;">Welcome to GrayMatter</h3>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.6;">Pick your role so GrayMatter can label brain regions and categorize memories in a way that makes sense for your work.</p>
+      <div id="role-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;"></div>
+      <div class="modal-actions">
+        <button onclick="dismissOnboarding()">Skip</button>
+        <button class="primary" id="onboarding-confirm" onclick="goToStep2()" disabled>Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: import -->
+    <div id="onboarding-step-2" style="display:none;">
+      <h3 style="margin-bottom:6px;">Import existing context</h3>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6;">Do you have an existing context file? GrayMatter will parse it and categorize each entry into your brain automatically.<br><span style="opacity:0.5;">Supports CLAUDE.md, .cursorrules, AGENTS.md, or any markdown file.</span></p>
+      <div id="import-status" style="font-size:11px;color:var(--muted);min-height:20px;margin-bottom:14px;"></div>
+      <div class="modal-actions">
+        <button onclick="confirmRole()">Skip</button>
+        <button onclick="browseContextFile()" style="border-color:#555;">Browse file…</button>
+        <button class="primary" id="onboarding-finish" onclick="confirmRole()">Finish</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function() {
+
+  let REGIONS = {
+    frontal:    { label: 'Decisions & Planning',  desc: 'Architecture choices, goals, strategies', examples: '"Migrate to GraphQL", "Q3 roadmap"', color: '#ff6b6b' },
+    parietal:   { label: 'Technical Knowledge',   desc: 'Code patterns, frameworks, stack details', examples: '"Turborepo monorepo", "Express + Postgres"', color: '#45b7d1' },
+    temporal:   { label: 'Events & History',       desc: 'Conversations, meetings, milestones', examples: '"Auth refactored last week"', color: '#4ecdc4' },
+    occipital:  { label: 'Visual & Design',        desc: 'UI/UX preferences, design system rules', examples: '"8px grid", "Tailwind CSS"', color: '#96ceb4' },
+    cerebellum: { label: 'Habits & Workflows',     desc: 'Routines, commit conventions, processes', examples: '"Run tests first", "Conventional commits"', color: '#ffeaa7' },
+    limbic:     { label: 'Preferences & Style',    desc: 'Personal tastes, language prefs, opinions', examples: '"Prefers TypeScript", "Dark mode"', color: '#dda0dd' }
+  };
+
+  function applyRole(role) {
+    if (!role?.regions) { return; }
+    for (const [key, override] of Object.entries(role.regions)) {
+      if (REGIONS[key]) {
+        REGIONS[key].label = override.label;
+        REGIONS[key].desc  = override.description;
+        REGIONS[key].examples = override.examples;
+      }
+    }
+    // Update role badge in legend bar
+    const badge = document.getElementById('role-badge');
+    if (badge && role.label) {
+      badge.textContent = role.emoji + ' ' + role.label;
+    }
+    // Load role suggestions for autocomplete
+    if (Array.isArray(role.suggestions)) {
+      roleSuggestions = role.suggestions;
+    }
+  }
+
+  const regionCenters = {
+    frontal:    { x: 0.12, y: -0.38, z: 0.58 },
+    parietal:   { x: 0.0,  y: -0.65, z: -0.08 },
+    temporal:   { x: 0.65, y: 0.1,   z: 0.15 },
+    occipital:  { x:-0.03, y: -0.2,  z: -0.62 },
+    cerebellum: { x: 0.04, y: 0.42,  z: -0.45 },
+    limbic:     { x: 0.0,  y: -0.04, z: 0.0 }
+  };
+
+  const vscode = acquireVsCodeApi();
+
+  // Demo memories — replaced immediately when the extension sends real data
+  let memories = [
+    { id:'demo-1', region:'frontal',    summary:'Migrate auth service to JWT before Q3 release',           content:'Migrate auth service to JWT before Q3 release',           tags:['auth','jwt','planning'],   importance:0.85, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-2', region:'frontal',    summary:'Adopt a mono-repo structure to unify the frontend packages', content:'Adopt a mono-repo structure to unify the frontend packages', tags:['architecture','monorepo'],  importance:0.75, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-3', region:'temporal',   summary:'Team retro on 2025-03-28 surfaced slow CI as top pain point', content:'Team retro on 2025-03-28 surfaced slow CI as top pain point', tags:['retro','ci'],               importance:0.65, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-4', region:'temporal',   summary:'v2.1 shipped on 2025-03-15 with the new onboarding flow',   content:'v2.1 shipped on 2025-03-15 with the new onboarding flow',   tags:['release','onboarding'],    importance:0.70, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-5', region:'parietal',   summary:'Postgres row-level security is enabled on all user tables', content:'Postgres row-level security is enabled on all user tables', tags:['postgres','security'],     importance:0.90, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-6', region:'parietal',   summary:'API rate-limit is 100 req/min per token, enforced at edge', content:'API rate-limit is 100 req/min per token, enforced at edge', tags:['api','rate-limit'],        importance:0.80, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-7', region:'occipital',  summary:'Design tokens live in tokens.json; never hard-code colors', content:'Design tokens live in tokens.json; never hard-code colors', tags:['design','tokens','css'],   importance:0.72, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-8', region:'occipital',  summary:'Use 8px base grid and Inter typeface across all surfaces',  content:'Use 8px base grid and Inter typeface across all surfaces',  tags:['typography','grid'],       importance:0.68, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-9', region:'cerebellum', summary:'Always run `npm run typecheck` before opening a PR',        content:'Always run `npm run typecheck` before opening a PR',        tags:['workflow','typescript'],   importance:0.78, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-10',region:'cerebellum', summary:'Deploy to staging first; production deploys need two approvals', content:'Deploy to staging first; production deploys need two approvals', tags:['deploy','workflow'], importance:0.85, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-11',region:'limbic',     summary:'Prefers concise PR descriptions with a bullet-point summary', content:'Prefers concise PR descriptions with a bullet-point summary', tags:['preferences','prs'],      importance:0.60, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+    { id:'demo-12',region:'limbic',     summary:'Dislikes verbose error messages — show short actionable hints', content:'Dislikes verbose error messages — show short actionable hints', tags:['ux','errors'],         importance:0.65, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() },
+  ];
+  let selectedRegion = null;
+  let activeTagFilter = null;
+  let editingMemoryId = null;
+
+  // ── Persisted UI state ──
+  const uiState = vscode.getState() || {};
+  if (uiState.bannerDismissed) {
+    document.getElementById('instruction-banner').style.display = 'none';
+  }
+
+  const canvas = document.getElementById('brain-canvas');
+  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+  const tooltip = document.getElementById('tooltip');
+
+  if (!gl) { alert('WebGL not supported'); return; }
+
+  let W, H;
+  let rotX = -0.15, rotY = 0.3, targetRotX = rotX, targetRotY = rotY;
+  let zoom = 1.0, targetZoom = 1.0;
+  const ZOOM_MIN = 0.5, ZOOM_MAX = 2.5;
+  let isDragging = false, lastMouse = {x:0,y:0};
+  let hoveredRegion = null, time = 0;
+  let mouseX = 0.5, mouseY = 0.5;
+
+  function resize() {
+    canvas.style.width = '';
+    canvas.style.height = '';
+    const r = canvas.parentElement.getBoundingClientRect();
+    const newW = r.width;
+    const newH = r.height;
+    // Guard: don't let the canvas collapse to 0 — that blacks out WebGL
+    if (newW < 1 || newH < 1) { return; }
+    W = newW; H = newH;
+    canvas.width = W * devicePixelRatio;
+    canvas.height = H * devicePixelRatio;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  resize();
+  window.addEventListener('resize', applyLayout);
+
+  // ══════════════════════════════════════════════════════
+  // GLSL Raymarched Brain — Cinema 4D / Octane style
+  // ══════════════════════════════════════════════════════
+
+  const vertSrc = `
+    attribute vec2 a_pos;
+    void main() { gl_Position = vec4(a_pos, 0, 1); }
+  `;
+
+  const fragSrc = `
+    precision highp float;
+    uniform vec2 u_res;
+    uniform float u_time;
+    uniform float u_rotX;
+    uniform float u_rotY;
+    uniform float u_zoom;
+    uniform int u_hoveredRegion;  // -1 = none, 0-5 = region index
+    uniform int u_selectedRegion;
+
+    #define PI 3.14159265
+    #define MAX_STEPS 100
+    #define MAX_DIST 8.0
+    #define SURF_DIST 0.002
+
+    // ── Rotation matrices ──
+    mat3 rotateX(float a) {
+      float c = cos(a), s = sin(a);
+      return mat3(1,0,0, 0,c,-s, 0,s,c);
+    }
+    mat3 rotateY(float a) {
+      float c = cos(a), s = sin(a);
+      return mat3(c,0,s, 0,1,0, -s,0,c);
+    }
+
+    // ── Smooth min for organic blends ──
+    float smin(float a, float b, float k) {
+      float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+      return mix(b, a, h) - k*h*(1.0-h);
+    }
+
+    // ── Groove function ──
+    // Produces narrow sulci (creases) with broad gyri (ridges) between them.
+    // Near zero-crossings of sin → value peaks (= deep groove added to SDF).
+    // Near sin peaks → value is ~0 (= smooth ridge surface, no displacement).
+    float gv(float ph, float sharpness) {
+      return pow(max(0.0, 1.0 - abs(sin(ph))), sharpness);
+    }
+
+    // ── Brain SDF ──
+    float brainSDF(vec3 p) {
+      // ── Main cerebrum: wide bilateral ellipsoid ──
+      vec3 ce = vec3(p.x / 1.12, (p.y + 0.04) / 0.86, p.z / 0.90);
+      float cerebrum = length(ce) - 1.0;
+
+      // Frontal lobe — forward-projecting rounded lobe
+      float frontal = length(vec3(p.x / 0.80, (p.y + 0.08) / 0.72, (p.z - 0.52) / 0.65)) - 1.0;
+      cerebrum = smin(cerebrum, frontal, 0.34);
+
+      // Temporal lobes — lateral inferior projection
+      float tempL = length(vec3((p.x - 0.62) / 0.46, (p.y - 0.10) / 0.40, (p.z - 0.04) / 0.52)) - 1.0;
+      float tempR = length(vec3((p.x + 0.62) / 0.46, (p.y - 0.10) / 0.40, (p.z - 0.04) / 0.52)) - 1.0;
+      cerebrum = smin(cerebrum, tempL, 0.20);
+      cerebrum = smin(cerebrum, tempR, 0.20);
+
+      // ── Longitudinal fissure — the #1 brain recognition cue ──
+      // Sharp Gaussian groove running top-center, separating two hemispheres.
+      // exp(-x²*110) is narrow (~0.14 units wide), * 0.38 makes it deep enough
+      // to clearly bisect the top when viewed from front or above.
+      float fissure = exp(-p.x * p.x * 110.0) * smoothstep(0.30, -0.78, p.y);
+      cerebrum += fissure * 0.38;
+
+      // Cerebellum (lower back)
+      float cb = length(vec3(p.x / 0.54, (p.y - 0.40) / 0.29, (p.z + 0.44) / 0.34)) - 1.0;
+      cerebrum = smin(cerebrum, cb, 0.11);
+
+      // Brain stem
+      float stem = length(vec2(p.x, p.z + 0.22)) - 0.12;
+      stem = max(stem, p.y - 0.55);
+      stem = max(stem, -p.y + 0.15);
+      cerebrum = smin(cerebrum, stem, 0.08);
+
+      // ── Gyri using spherical coordinates ──────────────────────────────────
+      // phi/theta produce latitude/longitude bands that wrap naturally around
+      // the brain surface — the organized, worm-like texture of real gyri.
+      // In this coord system: -y = top, +y = bottom, +z = front.
+      float r = length(p);
+      float phi   = acos(clamp(-p.y / max(r, 0.001), -1.0, 1.0)); // 0=top, PI=bottom
+      float theta = atan(p.x, p.z);  // 0=front, PI/2=right
+
+      float sulci = 0.0;
+      // Primary — wide rounded ridges (sharpness 5.5 → narrow sulci, broad gyri)
+      sulci += gv(phi * 7.5  + sin(theta * 2.0) * 1.2,             5.5) * 0.110;
+      sulci += gv(phi * 10.0 - sin(theta * 1.6) * 0.9,             5.5) * 0.095;
+      sulci += gv(theta * 5.8 + sin(phi * 3.0) * 1.1,              5.2) * 0.088;
+      sulci += gv(theta * 8.4 - cos(phi * 2.2) * 0.8,              5.2) * 0.074;
+      // Secondary
+      sulci += gv(phi * 13.0 + theta * 1.8 + sin(theta*3.0)*0.5,   5.8) * 0.052;
+      sulci += gv(theta * 11.5 + phi * 2.8 + cos(phi*4.0)*0.5,     5.8) * 0.043;
+      sulci += gv(phi * 15.5 - theta * 2.5 - sin(phi*5.0)*0.4,     6.0) * 0.033;
+      sulci += gv(theta * 14.0 + phi * 4.0 + cos(theta*5.5)*0.3,   6.0) * 0.025;
+      // Fine texture
+      sulci += gv(phi * 20.0 + theta * 5.5 + sin(theta*7.0)*0.3,   6.5) * 0.013;
+      sulci += gv(theta * 17.5 + phi * 8.5 + cos(phi*9.0)*0.3,     6.5) * 0.009;
+
+      float topMask = smoothstep(0.30, -0.80, p.y);
+      cerebrum += sulci * (0.56 + topMask * 0.44);
+
+      // ── Named anatomical sulci ─────────────────────────────────────────────
+      // Central sulcus — curved ear-to-ear groove
+      float centralS = abs(p.z - 0.05 + p.y * 0.28 + sin(p.x * 2.5) * 0.06);
+      float centralMask = smoothstep(0.75, 0.08, abs(p.x)) * smoothstep(0.15, -0.75, p.y);
+      cerebrum += max(0.0, 0.060 - centralS * 0.35) * centralMask * 5.8;
+
+      // Lateral / Sylvian fissure — deepest groove
+      float sylvian = abs(p.y + 0.05 + p.z * 0.14 - p.x * 0.08 + sin(p.z * 2.0) * 0.04);
+      float sylvianMask = smoothstep(0.82, 0.08, abs(p.x)) * smoothstep(0.52, -0.30, p.z);
+      cerebrum += max(0.0, 0.062 - sylvian * 0.32) * sylvianMask * 6.5;
+
+      // Superior temporal sulcus
+      float stS = abs(p.y + 0.20 + p.z * 0.10 - p.x * 0.05 + cos(p.z * 2.2) * 0.03);
+      float stMask = smoothstep(0.80, 0.12, abs(p.x)) * smoothstep(0.44, -0.16, p.z);
+      cerebrum += max(0.0, 0.045 - stS * 0.38) * stMask * 4.8;
+
+      // Precentral sulcus
+      float precentralS = abs(p.z - 0.24 + p.y * 0.22 + sin(p.x * 3.0) * 0.05);
+      float precentralMask = smoothstep(0.65, 0.08, abs(p.x)) * smoothstep(0.18, -0.64, p.y);
+      cerebrum += max(0.0, 0.048 - precentralS * 0.35) * precentralMask * 4.8;
+
+      // Postcentral sulcus
+      float postcentralS = abs(p.z + 0.14 + p.y * 0.28 + cos(p.x * 2.8) * 0.05);
+      float postcentralMask = smoothstep(0.62, 0.08, abs(p.x)) * smoothstep(0.12, -0.64, p.y);
+      cerebrum += max(0.0, 0.044 - postcentralS * 0.36) * postcentralMask * 4.5;
+
+      // Intraparietal sulcus
+      float ipS = abs(p.x - 0.14 + p.z * 0.08 + sin(p.z * 3.5) * 0.04) * smoothstep(0.02, -0.28, p.z) * smoothstep(-0.28, -0.72, p.y);
+      cerebrum += max(0.0, 0.034 - ipS * 0.27) * 4.0;
+
+      // Parieto-occipital sulcus
+      float poS = abs(p.z + 0.46 + p.y * 0.38 + sin(p.x * 2.0) * 0.04);
+      float poMask = smoothstep(0.52, 0.05, abs(p.x)) * smoothstep(0.02, -0.52, p.y);
+      cerebrum += max(0.0, 0.048 - poS * 0.33) * poMask * 4.8;
+
+      // Superior frontal sulcus
+      float sfS = abs(p.x - 0.30 + sin(p.z * 3.0) * 0.05) * smoothstep(0.72, 0.18, p.z) * smoothstep(-0.08, -0.64, p.y);
+      cerebrum += max(0.0, 0.034 - sfS * 0.25) * 4.0;
+
+      // Inferior frontal sulcus
+      float ifS = abs(p.x - 0.54 + cos(p.z * 2.5) * 0.04) * smoothstep(0.62, 0.08, p.z) * smoothstep(0.12, -0.30, p.y);
+      cerebrum += max(0.0, 0.030 - ifS * 0.29) * 3.8;
+
+      return cerebrum;
+    }
+
+    // ── Scene SDF ──
+    float sceneSDF(vec3 p) {
+      return brainSDF(p);
+    }
+
+    // ── Normal via gradient ──
+    vec3 getNormal(vec3 p) {
+      vec2 e = vec2(0.001, 0);
+      return normalize(vec3(
+        sceneSDF(p + e.xyy) - sceneSDF(p - e.xyy),
+        sceneSDF(p + e.yxy) - sceneSDF(p - e.yxy),
+        sceneSDF(p + e.yyx) - sceneSDF(p - e.yyx)
+      ));
+    }
+
+    // ── Raymarching ──
+    float raymarch(vec3 ro, vec3 rd) {
+      float t = 0.0;
+      for (int i = 0; i < MAX_STEPS; i++) {
+        vec3 p = ro + rd * t;
+        float d = sceneSDF(p);
+        if (d < SURF_DIST) return t;
+        if (t > MAX_DIST) break;
+        t += d * 0.8;
+      }
+      return -1.0;
+    }
+
+    // ── Soft shadow ──
+    float softShadow(vec3 ro, vec3 rd, float tmax) {
+      float res = 1.0;
+      float t = 0.02;
+      for (int i = 0; i < 24; i++) {
+        float d = sceneSDF(ro + rd * t);
+        res = min(res, 8.0 * d / t);
+        t += clamp(d, 0.01, 0.2);
+        if (t > tmax) break;
+      }
+      return clamp(res, 0.0, 1.0);
+    }
+
+    // ── AO ──
+    float calcAO(vec3 p, vec3 n) {
+      float occ = 0.0;
+      float sca = 1.0;
+      for (int i = 0; i < 8; i++) {
+        float h = 0.003 + 0.07 * float(i);  // finer steps → captures sulci shadow
+        float d = sceneSDF(p + n * h);
+        occ += (h - d) * sca;
+        sca *= 0.72;
+      }
+      return clamp(1.0 - 3.0 * occ, 0.0, 1.0);  // stronger AO = darker sulci
+    }
+
+    // ── Region detection ──
+    // Returns 0-5: frontal, parietal, temporal, occipital, cerebellum, limbic
+    int getRegion(vec3 p) {
+      float d0 = length(p - vec3(0.12, -0.38, 0.58));
+      float d1 = length(p - vec3(0.0, -0.65, -0.08));
+      float d2 = length(p - vec3(0.65, 0.1, 0.15));
+      float d3 = length(p - vec3(-0.03, -0.2, -0.62));
+      float d4 = length(p - vec3(0.04, 0.42, -0.45));
+      float d5 = length(p - vec3(0.0, -0.04, 0.0));
+
+      int closest = 0;
+      float minD = d0;
+      if (d1 < minD) { minD = d1; closest = 1; }
+      if (d2 < minD) { minD = d2; closest = 2; }
+      if (d3 < minD) { minD = d3; closest = 3; }
+      if (d4 < minD) { minD = d4; closest = 4; }
+      if (d5 < minD) { minD = d5; closest = 5; }
+      return closest;
+    }
+
+    vec3 regionColor(int r) {
+      if (r == 0) return vec3(1.0, 0.42, 0.42);   // frontal - red
+      if (r == 1) return vec3(0.27, 0.72, 0.82);   // parietal - blue
+      if (r == 2) return vec3(0.31, 0.8, 0.77);    // temporal - teal
+      if (r == 3) return vec3(0.59, 0.81, 0.71);   // occipital - green
+      if (r == 4) return vec3(1.0, 0.92, 0.65);    // cerebellum - yellow
+      return vec3(0.87, 0.63, 0.87);               // limbic - purple
+    }
+
+    // ── Iridescence ──
+    vec3 iridescence(float NdV, float t) {
+      // Thin-film interference approximation
+      float phase = NdV * 6.28 * 1.5 + t * 0.3;
+      return 0.2 + 0.2 * vec3(
+        cos(phase),
+        cos(phase + 2.094),
+        cos(phase + 4.189)
+      );
+    }
+
+    void main() {
+      vec2 uv = (gl_FragCoord.xy - u_res * 0.5) / min(u_res.x, u_res.y);
+      uv.y = -uv.y; // flip Y
+
+      // Camera
+      mat3 rotM = rotateY(u_rotY) * rotateX(u_rotX);
+      float camDist = 3.2 / u_zoom;
+      vec3 ro = rotM * vec3(0, 0, camDist);
+      vec3 target = vec3(0, -0.05, 0);
+      vec3 fwd = normalize(target - ro);
+      vec3 right = normalize(cross(fwd, vec3(0,1,0)));
+      vec3 up = cross(right, fwd);
+      vec3 rd = normalize(fwd + uv.x * right + uv.y * up);
+
+      // Background — solid dark teal
+      vec3 bgColor = vec3(0.1, 0.1, 0.1);
+      vec3 col = bgColor;
+
+      // Raymarch
+      float t = raymarch(ro, rd);
+
+      if (t > 0.0) {
+        vec3 p = ro + rd * t;
+        vec3 n = getNormal(p);
+
+        // Transform hit point back to local space for region detection
+        mat3 invRot = rotateX(-u_rotX) * rotateY(-u_rotY);
+        vec3 localP = invRot * p;
+        int region = getRegion(localP);
+
+        // ── Studio Lighting Setup ──
+        // Key light — warm from upper right
+        vec3 keyDir = normalize(vec3(1.5, 2.0, 2.0));
+        float keyDiff = max(dot(n, keyDir), 0.0);
+        float keyShadow = softShadow(p + n * 0.01, keyDir, 3.0);
+        vec3 keyColor = vec3(1.0, 0.95, 0.9) * 1.2;
+
+        // Fill light — cool from left
+        vec3 fillDir = normalize(vec3(-1.5, 0.5, 1.0));
+        float fillDiff = max(dot(n, fillDir), 0.0);
+        vec3 fillColor = vec3(0.7, 0.85, 1.0) * 0.5;
+
+        // Rim light — strong back lighting for that C4D look
+        vec3 rimDir = normalize(vec3(0.0, 0.3, -2.0));
+        float rimDot = 1.0 - max(dot(n, -rd), 0.0);
+        float rim = pow(rimDot, 3.0) * 1.4;
+        vec3 rimColor = vec3(0.9, 0.92, 1.0) * 1.5;
+
+        // Specular — glossy Blinn-Phong
+        vec3 halfKey = normalize(keyDir - rd);
+        float specKey = pow(max(dot(n, halfKey), 0.0), 80.0) * 1.8;
+        vec3 halfFill = normalize(fillDir - rd);
+        float specFill = pow(max(dot(n, halfFill), 0.0), 40.0) * 0.6;
+
+        // Ambient occlusion
+        float ao = calcAO(p, n);
+
+        // ── Soft pink surface — matches reference image ──
+        vec3 baseColor = vec3(0.96, 0.55, 0.62);  // warm coral-pink
+
+        // Fresnel
+        float fresnel = pow(1.0 - max(dot(n, -rd), 0.0), 4.0);
+
+        // Very subtle iridescence — just a hint of warmth shift, no rainbow
+        vec3 iri = iridescence(dot(n, -rd), u_time);
+        baseColor += iri * 0.08;
+
+        // Region highlight
+        bool isHovered = (u_hoveredRegion == region);
+        bool isSelected = (u_selectedRegion == region);
+        if (isHovered || isSelected) {
+          vec3 rc = regionColor(region);
+          float pulse = 0.5 + 0.5 * sin(u_time * 3.0 + localP.x * 5.0 + localP.y * 3.0);
+          float blend = isHovered ? 0.45 : 0.3;
+          blend *= (0.7 + pulse * 0.3);
+          baseColor = mix(baseColor, rc, blend);
+          // Extra glow
+          rim += (isHovered ? 0.5 : 0.3) * pulse;
+        }
+
+        // Combine lighting
+        vec3 diffuse = baseColor * (
+          keyDiff * keyColor * keyShadow +
+          fillDiff * fillColor +
+          vec3(0.12, 0.06, 0.07) * ao  // warm pink ambient
+        );
+
+        // Specular — warm white highlight on pink surface
+        vec3 specular = vec3(1.0, 0.85, 0.80) * (specKey * keyShadow + specFill * 0.6);
+
+        // Fresnel — slight pinkish tint at glancing angles
+        vec3 fresnelColor = mix(vec3(1.0, 0.70, 0.72), vec3(1.0), 0.5);
+
+        col = diffuse * ao;
+        col += specular;
+        col += rim * rimColor * 0.8;
+        col += fresnel * fresnelColor * 0.35;
+
+        // Subsurface scattering — pinkish warm glow through thin areas
+        float sss = pow(max(dot(rd, keyDir), 0.0), 5.0) * 0.22;
+        col += sss * vec3(1.0, 0.60, 0.55);
+      }
+
+      // Tone mapping — keep bright for dense halftone dots
+      col = col / (col + 0.6);
+      col = pow(col, vec3(0.75));  // brighter gamma for denser dot fill
+      col *= 1.15; // overall boost
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  // ── HALFTONE DOT-ART POST-PROCESS SHADER ──
+  const halftoneFragSrc = `
+    precision highp float;
+    uniform sampler2D u_tex;
+    uniform vec2 u_res;
+    uniform float u_time;
+    uniform float u_zoom;
+    uniform float u_dotScale;
+
+    #define PI 3.14159265
+
+    // 4-pointed star sparkle shape
+    float starShape(vec2 p, float size) {
+      float d1 = abs(p.x) + abs(p.y);  // diamond
+      float d2 = max(abs(p.x), abs(p.y));  // square
+      float star = mix(d1, d2, 0.15);
+      return smoothstep(size, size * 0.3, star);
+    }
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / u_res;
+
+      // ── Halftone grid ──
+      // Very dense grid — reference has ~3-4px cells
+      float cellSize = (3.0 + 0.5 / max(u_zoom, 0.5)) * u_dotScale;
+      vec2 pixel = gl_FragCoord.xy;
+
+      // Grid coordinates
+      vec2 cell = floor(pixel / cellSize);
+      vec2 cellUV = fract(pixel / cellSize) - 0.5;  // -0.5 to 0.5 within cell
+      float distToCenter = length(cellUV);
+
+      // Sample the scene color at the center of this grid cell
+      vec2 cellCenter = (cell + 0.5) * cellSize / u_res;
+      vec4 cellColor = texture2D(u_tex, cellCenter);
+      vec3 cc = cellColor.rgb;
+      float cellLum = cc.r * 0.299 + cc.g * 0.587 + cc.b * 0.114;
+
+      // Is this cell on the brain? Background is dark teal (low luminance)
+      float isBrain = smoothstep(0.05, 0.10, cellLum);
+
+      // Dot radius: very large for bright areas (near-solid), shrinks for dark
+      // Reference shows dots nearly touching in lit areas
+      float dotRadius = 0.0;
+      if (isBrain > 0.01) {
+        // Map luminance to dot radius — heavily biased toward large dots
+        // Low lum (sulci/dark) = small dots, high lum (lit surface) = big dots
+        float lumNorm = smoothstep(0.05, 0.7, cellLum);
+        dotRadius = mix(0.15, 0.49, pow(lumNorm, 0.5));
+        dotRadius *= isBrain;
+      }
+
+      // Anti-aliased circle
+      float aa = 0.8 / cellSize;
+      float dotMask = smoothstep(dotRadius + aa, dotRadius - aa, distToCenter);
+
+      // Background: solid dark teal
+      vec3 bgColor = vec3(0.1, 0.1, 0.1);
+
+      // Dot color: muted dusty rose, subtly tinted by scene lighting
+      vec3 dotBase = vec3(0.85, 0.55, 0.65);
+      vec3 dotColor = mix(dotBase, cc * 1.2, 0.2);
+      // Ensure dots stay visible even in dark areas
+      dotColor = max(dotColor, dotBase * 0.55);
+
+      // Compose: background + dots
+      vec3 finalColor = mix(bgColor, dotColor, dotMask);
+
+      // ── Sparkle overlay ──
+      // Small 4-pointed star sparkles scattered on brain
+      float sparkleGrid = cellSize * 12.0;
+      vec2 sparkleCell = floor(pixel / sparkleGrid);
+      vec2 sparkleCellUV = (fract(pixel / sparkleGrid) - 0.5) * sparkleGrid;
+
+      // Pseudo-random per sparkle cell
+      float sparkleRand = fract(sin(dot(sparkleCell, vec2(127.1, 311.7))) * 43758.5453);
+      float sparkleRand2 = fract(sin(dot(sparkleCell, vec2(269.5, 183.3))) * 43758.5453);
+
+      // Only some cells get sparkles, and only on the brain
+      vec2 sparkleSampleUV = (sparkleCell + 0.5) * sparkleGrid / u_res;
+      vec3 sparkleSampleCol = texture2D(u_tex, sparkleSampleUV).rgb;
+      float sparkleBrainLum = sparkleSampleCol.r * 0.299 + sparkleSampleCol.g * 0.587 + sparkleSampleCol.b * 0.114;
+      float sparkleBrain = smoothstep(0.08, 0.15, sparkleBrainLum);
+
+      if (sparkleRand > 0.55 && sparkleBrain > 0.5) {
+        float twinklePhase = sparkleRand2 * 6.283 + u_time * (1.0 + sparkleRand * 2.0);
+        float twinkle = sin(twinklePhase);
+
+        if (twinkle > 0.2) {
+          float sparkleAlpha = (twinkle - 0.2) * 1.25;
+          float sparkleSize = (3.0 + sparkleRand * 5.0) * sparkleAlpha;
+
+          vec2 offset = (vec2(sparkleRand, sparkleRand2) - 0.5) * sparkleGrid * 0.6;
+          vec2 sp = sparkleCellUV - offset;
+
+          float star = starShape(sp, sparkleSize);
+          vec3 sparkleColor = vec3(1.0, 1.0, 1.0);
+
+          finalColor = mix(finalColor, sparkleColor, star * sparkleAlpha * 0.9);
+        }
+      }
+
+      gl_FragColor = vec4(finalColor, 1.0);
+    }
+  `;
+
+  // ── Compile shaders ──
+  function createShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.error('Shader error:', gl.getShaderInfoLog(s));
+      return null;
+    }
+    return s;
+  }
+
+  function createProgram(vSrc, fSrc) {
+    const vs = createShader(gl.VERTEX_SHADER, vSrc);
+    const fs = createShader(gl.FRAGMENT_SHADER, fSrc);
+    const p = gl.createProgram();
+    gl.attachShader(p, vs);
+    gl.attachShader(p, fs);
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      console.error('Link error:', gl.getProgramInfoLog(p));
+    }
+    return p;
+  }
+
+  // Pass 1: Brain render
+  const brainProg = createProgram(vertSrc, fragSrc);
+  // Pass 2: Halftone dot-art
+  const halftoneProg = createProgram(vertSrc, halftoneFragSrc);
+
+  // Full-screen quad
+  const quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+  function setupAttrib(prog) {
+    const aPos = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+  }
+
+  // Brain pass uniforms
+  const brainUniforms = {
+    res: gl.getUniformLocation(brainProg, 'u_res'),
+    time: gl.getUniformLocation(brainProg, 'u_time'),
+    rotX: gl.getUniformLocation(brainProg, 'u_rotX'),
+    rotY: gl.getUniformLocation(brainProg, 'u_rotY'),
+    zoom: gl.getUniformLocation(brainProg, 'u_zoom'),
+    hovered: gl.getUniformLocation(brainProg, 'u_hoveredRegion'),
+    selected: gl.getUniformLocation(brainProg, 'u_selectedRegion'),
+  };
+
+  // Halftone pass uniforms
+  const halftoneUniforms = {
+    tex: gl.getUniformLocation(halftoneProg, 'u_tex'),
+    res: gl.getUniformLocation(halftoneProg, 'u_res'),
+    time: gl.getUniformLocation(halftoneProg, 'u_time'),
+    zoom: gl.getUniformLocation(halftoneProg, 'u_zoom'),
+    dotScale: gl.getUniformLocation(halftoneProg, 'u_dotScale'),
+  };
+
+  // ── Framebuffer for brain render ──
+  let fbo, fboTex, fboW = 0, fboH = 0;
+
+  function ensureFBO() {
+    const w = canvas.width, h = canvas.height;
+    if (w === fboW && h === fboH) return;
+    fboW = w; fboH = h;
+
+    if (fbo) { gl.deleteFramebuffer(fbo); gl.deleteTexture(fboTex); }
+
+    fboTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, fboTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  const regionKeys = ['frontal','parietal','temporal','occipital','cerebellum','limbic'];
+  function regionIndex(key) { return key ? regionKeys.indexOf(key) : -1; }
+  function getRegionCount(r) { return memories.filter(m => m.region === r).length; }
+
+  // ── 2D projection for hit testing ──
+  function project3D(lx, ly, lz) {
+    const cx = Math.cos(rotX), sx = Math.sin(rotX);
+    const cy = Math.cos(rotY), sy = Math.sin(rotY);
+    const x1 = lx*cy - lz*sy, z1 = lx*sy + lz*cy;
+    const y1 = ly*cx - z1*sx, z2 = ly*sx + z1*cx;
+    const s = Math.min(W,H) * 0.42 * zoom / (4 + z2);
+    return { x: W/2 + x1*s, y: H/2 + y1*s, z: z2 };
+  }
+
+  // ── Render (two-pass) ──
+  function render() {
+    time += 0.016;
+    rotX += (targetRotX - rotX) * 0.06;
+    rotY += (targetRotY - rotY) * 0.06;
+    zoom += (targetZoom - zoom) * 0.1;
+
+    ensureFBO();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+
+    // ── Pass 1: Render brain to FBO ──
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(brainProg);
+    setupAttrib(brainProg);
+
+    gl.uniform2f(brainUniforms.res, canvas.width, canvas.height);
+    gl.uniform1f(brainUniforms.time, time);
+    gl.uniform1f(brainUniforms.rotX, rotX);
+    gl.uniform1f(brainUniforms.rotY, rotY);
+    gl.uniform1f(brainUniforms.zoom, zoom);
+    gl.uniform1i(brainUniforms.hovered, regionIndex(hoveredRegion));
+    gl.uniform1i(brainUniforms.selected, regionIndex(selectedRegion));
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // ── Pass 2: Halftone dot-art composite to screen ──
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(halftoneProg);
+    setupAttrib(halftoneProg);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, fboTex);
+    gl.uniform1i(halftoneUniforms.tex, 0);
+    gl.uniform2f(halftoneUniforms.res, canvas.width, canvas.height);
+    gl.uniform1f(halftoneUniforms.time, time);
+    gl.uniform1f(halftoneUniforms.zoom, zoom);
+    gl.uniform1f(halftoneUniforms.dotScale, devicePixelRatio);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Draw 2D labels
+    drawLabels();
+    // Smooth sidebar resize spring
+    tickSidebarResize();
+    requestAnimationFrame(render);
+  }
+
+  // ── 2D canvas overlay for labels ──
+  const overlay = document.createElement('canvas');
+  overlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;width:100%;height:100%;';
+  document.getElementById('canvas-container').appendChild(overlay);
+  const ctx2d = overlay.getContext('2d');
+
+  function resizeOverlay() {
+    overlay.width = W * devicePixelRatio;
+    overlay.height = H * devicePixelRatio;
+    overlay.style.width = W + 'px';
+    overlay.style.height = H + 'px';
+    ctx2d.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  }
+  resizeOverlay();
+  window.addEventListener('resize', resizeOverlay);
+
+  function drawLabels() {
+    ctx2d.clearRect(0, 0, W, H);
+
+    for (const [key, c] of Object.entries(regionCenters)) {
+      const p = project3D(c.x, c.y, c.z);
+      const isHovered = hoveredRegion === key;
+      const isSelected = selectedRegion === key;
+
+      if (isHovered || isSelected) {
+        const rc = REGIONS[key].color;
+        const count = getRegionCount(key);
+        const radius = (20 + count * 4) * Math.max(0.6, zoom);
+
+        // Ring
+        ctx2d.strokeStyle = rc + (isHovered ? '70' : '50');
+        ctx2d.lineWidth = isHovered ? 2 : 1.5;
+        ctx2d.setLineDash(isSelected ? [4,4] : []);
+        ctx2d.beginPath();
+        ctx2d.arc(p.x, p.y, radius, 0, Math.PI*2);
+        ctx2d.stroke();
+        ctx2d.setLineDash([]);
+
+        // Label pill
+        const label = REGIONS[key].label;
+        ctx2d.font = '600 11px "DM Sans", sans-serif';
+        const tw = ctx2d.measureText(label).width;
+        const lx = p.x, ly = p.y + radius + 16;
+        const pw = tw + 16, ph = 22;
+
+        ctx2d.fillStyle = 'rgba(26, 26, 26, 0.92)';
+        ctx2d.beginPath();
+        ctx2d.roundRect(lx - pw/2, ly - ph/2, pw, ph, 6);
+        ctx2d.fill();
+        ctx2d.strokeStyle = rc + '60';
+        ctx2d.lineWidth = 1;
+        ctx2d.stroke();
+
+        ctx2d.fillStyle = rc;
+        ctx2d.textAlign = 'center';
+        ctx2d.textBaseline = 'middle';
+        ctx2d.fillText(label, lx, ly);
+
+        if (count > 0) {
+          ctx2d.font = '700 10px "DM Sans", sans-serif';
+          const bw = ctx2d.measureText(count.toString()).width + 10;
+          ctx2d.fillStyle = rc;
+          ctx2d.beginPath();
+          ctx2d.roundRect(lx + pw/2 - bw + 2, ly - ph/2 - 6, bw, 14, 7);
+          ctx2d.fill();
+          ctx2d.fillStyle = '#1a1a1a';
+          ctx2d.fillText(count, lx + pw/2 - bw/2 + 2, ly - ph/2 + 1);
+        }
+      }
+    }
+  }
+
+  // ── Hit testing ──
+  function getHoveredRegion(mx, my) {
+    let closest = null, minD = Infinity;
+    for (const [key, c] of Object.entries(regionCenters)) {
+      const p = project3D(c.x, c.y, c.z);
+      const r = (28 + getRegionCount(key) * 4) * Math.max(0.6, zoom);
+      const dist = Math.hypot(mx - p.x, my - p.y);
+      if (dist < r + 15 && dist < minD) { closest = key; minD = dist; }
+    }
+    return closest;
+  }
+
+  // ── Mouse ──
+  canvas.addEventListener('mousedown', e => { isDragging = true; lastMouse = {x:e.clientX,y:e.clientY}; });
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    mouseX = mx / W; mouseY = my / H;
+    if (isDragging) {
+      targetRotY += (e.clientX - lastMouse.x) * 0.005;
+      targetRotX += (e.clientY - lastMouse.y) * 0.005;
+      targetRotX = Math.max(-1.2, Math.min(1.2, targetRotX));
+      lastMouse = {x:e.clientX,y:e.clientY};
+    } else {
+      const region = getHoveredRegion(mx, my);
+      hoveredRegion = region;
+      canvas.style.cursor = region ? 'pointer' : 'grab';
+      if (region) {
+        const m = REGIONS[region], c = getRegionCount(region);
+        tooltip.innerHTML =
+          '<div class="tt-label" style="color:'+m.color+'">'+m.label+'</div>'
+          +'<div class="tt-desc">'+m.desc+'</div>'
+          +'<div class="tt-count"><strong>'+c+'</strong> memor'+(c===1?'y':'ies')+' stored</div>'
+          +'<div class="tt-examples">e.g. '+m.examples+'</div>';
+        tooltip.style.left = Math.min(mx+18, W-270)+'px';
+        tooltip.style.top = Math.max(my-20, 5)+'px';
+        tooltip.classList.add('visible');
+      } else tooltip.classList.remove('visible');
+    }
+  });
+  canvas.addEventListener('mouseup', () => isDragging = false);
+  canvas.addEventListener('mouseleave', () => { isDragging=false; hoveredRegion=null; tooltip.classList.remove('visible'); });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + (e.deltaY > 0 ? -0.08 : 0.08)));
+  }, {passive:false});
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const region = getHoveredRegion(e.clientX-rect.left, e.clientY-rect.top);
+    if (region) { window.selectRegion(region); }
+  });
+
+  // Touch
+  let lastTouchDist = 0;
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      lastTouchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    } else if (e.touches.length === 1) { isDragging=true; lastMouse={x:e.touches[0].clientX,y:e.touches[0].clientY}; }
+  });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      if (lastTouchDist > 0) targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom * dist/lastTouchDist));
+      lastTouchDist = dist;
+    } else if (e.touches.length === 1 && isDragging) {
+      targetRotY += (e.touches[0].clientX-lastMouse.x)*0.005;
+      targetRotX += (e.touches[0].clientY-lastMouse.y)*0.005;
+      targetRotX = Math.max(-1.2, Math.min(1.2, targetRotX));
+      lastMouse = {x:e.touches[0].clientX,y:e.touches[0].clientY};
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchend', () => { isDragging=false; lastTouchDist=0; });
+
+  // ── Legend ──
+  function updateLegend() {
+    document.getElementById('legend').innerHTML = Object.entries(REGIONS).map(([k,m]) => {
+      const c = getRegionCount(k);
+      // Use data-region attribute — never interpolate region keys into JS event handlers
+      return '<div class="legend-item'+(selectedRegion===k?' active':'')+'" data-region="'+k+'">'
+        +'<span class="swatch" style="background:'+m.color+'"></span>'+m.label
+        +(c>0?'<span class="lcount">'+c+'</span>':'')+'</div>';
+    }).join('');
+  }
+  // Event delegation — one listener on #legend, never injecting JS via string interpolation
+  document.getElementById('legend').addEventListener('click', e => {
+    const item = e.target.closest('[data-region]');
+    if (item) window.selectRegion(item.dataset.region);
+  });
+  updateLegend();
+  window.selectRegion = function(k) {
+    if (selectedRegion === k) {
+      selectedRegion = null;
+      showAllMemories();
+    } else {
+      selectedRegion = k;
+      showRegionPanel(k);
+      rotateToRegion(k);
+    }
+    updateLegend();
+  };
+
+  // ── Rotate brain to face a given region ──
+  function rotateToRegion(key) {
+    const c = regionCenters[key];
+    // Calculate the rotation angles that would place this region facing the camera
+    // We want the region center to be at the front of the brain
+    // atan2(x, z) gives the Y rotation, atan2(y, sqrt(x²+z²)) gives X rotation
+    targetRotY = -Math.atan2(c.x, c.z) + 0.15; // slight offset so label doesn't overlap center
+    targetRotX = Math.atan2(c.y, Math.sqrt(c.x * c.x + c.z * c.z)) * 0.6;
+    targetRotX = Math.max(-1.2, Math.min(1.2, targetRotX));
+    autoRotate = false;
+    setTimeout(() => autoRotate = true, 6000);
+  }
+
+  // ── Sidebar ──
+  function showRegionPanel(region) {
+    const meta = REGIONS[region];
+    const rm = memories.filter(m => m.region === region);
+    document.getElementById('sidebar-title').innerHTML = '<span class="dot" style="background:'+meta.color+'"></span>'+esc(meta.label);
+    document.getElementById('sidebar-desc').textContent = meta.desc + (activeTagFilter ? ' · #'+activeTagFilter : '');
+    document.getElementById('sidebar-count').textContent = rm.length + ' memor' + (rm.length===1?'y':'ies');
+    renderCards(rm, 'No memories stored here yet');
+  }
+  function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+  const SORT_MODES = ['importance','newest','oldest','region'];
+  const SORT_LABELS = { importance:'↕ importance', newest:'↕ newest', oldest:'↕ oldest', region:'↕ region' };
+  let currentSort = uiState.sort || 'importance';
+  document.getElementById('sort-btn').textContent = SORT_LABELS[currentSort];
+
+  function applySort(arr) {
+    switch (currentSort) {
+      case 'newest':  return [...arr].sort((a,b) => b.createdAt.localeCompare(a.createdAt));
+      case 'oldest':  return [...arr].sort((a,b) => a.createdAt.localeCompare(b.createdAt));
+      case 'region':  return [...arr].sort((a,b) => a.region.localeCompare(b.region));
+      default:        return [...arr].sort((a,b) => b.importance - a.importance);
+    }
+  }
+
+  document.getElementById('sort-btn').addEventListener('click', () => {
+    const idx = (SORT_MODES.indexOf(currentSort) + 1) % SORT_MODES.length;
+    currentSort = SORT_MODES[idx];
+    document.getElementById('sort-btn').textContent = SORT_LABELS[currentSort];
+    vscode.setState({ ...vscode.getState(), sort: currentSort });
+    refreshMemoryView();
+  });
+
+  function applyFilters(arr) {
+    const q = document.getElementById('search-input').value.trim().toLowerCase();
+    return arr.filter(m => {
+      if (activeTagFilter && !m.tags.includes(activeTagFilter)) return false;
+      if (!q) return true;
+      return m.summary.toLowerCase().includes(q) || m.content.toLowerCase().includes(q)
+        || m.tags.some(t => t.toLowerCase().includes(q))
+        || (REGIONS[m.region]?.label || '').toLowerCase().includes(q);
+    });
+  }
+
+  function renderCards(arr, emptyMsg) {
+    const filtered = applyFilters(applySort(arr));
+    const list = document.getElementById('memories-list');
+    if (!filtered.length) {
+      const hint = activeTagFilter ? 'Filtered by tag: '+esc(activeTagFilter)+' — <span class="clear-tag-filter" style="cursor:pointer;text-decoration:underline;opacity:0.6;">clear</span>' : emptyMsg;
+      list.innerHTML = '<div class="empty-state">'+hint+'</div>';
+      return;
+    }
+    list.innerHTML = filtered.map(m => {
+      const pct = (m.importance*100).toFixed(0);
+      const regionColor = REGIONS[m.region]?.color || '#888';
+      const isActiveTag = t => activeTagFilter === t ? 'opacity:1;border-color:#999;' : '';
+      return '<div class="memory-card" data-id="'+esc(m.id)+'" style="border-left-color:'+regionColor+';cursor:pointer;">'
+        +'<button class="forget-btn" data-id="'+esc(m.id)+'" title="Forget this memory">forget</button>'
+        +(m.model ? '<span class="model-badge">'+esc(m.model.replace('claude-','').replace(/-\d{8}$/,''))+'</span>' : '')
+        +'<div class="summary">'+esc(m.summary)+'</div>'
+        +'<div class="meta"><span>'+esc(REGIONS[m.region]?.label||m.region)+'</span><span>'+new Date(m.createdAt).toLocaleDateString()+'</span></div>'
+        +(m.tags.length?'<div class="tags">'+m.tags.map(t=>'<span class="tag" data-tag="'+esc(t)+'" style="'+isActiveTag(t)+'">'+esc(t)+'</span>').join('')+'</div>':'')
+        +'<div class="importance-bar"><div class="track"><div class="fill" style="width:'+pct+'%;background:#666"></div></div><span class="pct">'+pct+'%</span></div></div>';
+    }).join('');
+  }
+
+  function showAllMemories() {
+    document.getElementById('sidebar-title').textContent = 'All Memories';
+    document.getElementById('sidebar-desc').textContent = 'Sorted by ' + currentSort + (activeTagFilter ? ' · #'+activeTagFilter : '');
+    document.getElementById('sidebar-count').textContent = memories.length + ' total';
+    renderCards(memories, 'No memories yet<br>Add one or import from CLAUDE.md, .cursorrules, AGENTS.md, and more');
+  }
+  function updateTotalCount() {
+    document.getElementById('total-count').innerHTML = '<strong>'+memories.length+'</strong> memories';
+    if (!selectedRegion) showAllMemories();
+  }
+  updateTotalCount();
+
+  // Event delegation — forget, edit, tag filter, clear tag
+  document.getElementById('memories-list').addEventListener('click', e => {
+    // Forget
+    const forgetBtn = e.target.closest('.forget-btn');
+    if (forgetBtn && forgetBtn.dataset.id) {
+      vscode.postMessage({ type: 'requestDelete', id: forgetBtn.dataset.id });
+      return;
+    }
+    // Clear tag filter
+    if (e.target.classList.contains('clear-tag-filter')) {
+      activeTagFilter = null;
+      refreshMemoryView();
+      return;
+    }
+    // Tag filter
+    const tagEl = e.target.closest('.tag');
+    if (tagEl && tagEl.dataset.tag) {
+      activeTagFilter = activeTagFilter === tagEl.dataset.tag ? null : tagEl.dataset.tag;
+      refreshMemoryView();
+      return;
+    }
+    // Edit on card click
+    const card = e.target.closest('.memory-card');
+    if (card && card.dataset.id) { showEditModal(card.dataset.id); }
+  });
+
+  document.getElementById('dismiss-banner').addEventListener('click', () => {
+    document.getElementById('instruction-banner').style.display = 'none';
+    vscode.setState({ ...vscode.getState(), bannerDismissed: true });
+  });
+
+  // ── Actions menu ──
+  const actionsMenu = document.getElementById('actions-menu');
+
+  function openActionsMenu(btn) {
+    const rect = btn.getBoundingClientRect();
+    actionsMenu.style.top = (rect.bottom + 5) + 'px';
+    const rightOffset = window.innerWidth - rect.right;
+    actionsMenu.style.right = Math.max(4, rightOffset) + 'px';
+    actionsMenu.style.left = '';
+    actionsMenu.classList.add('visible');
+    setTimeout(() => document.addEventListener('click', closeActionsMenuOutside, { once: true }), 0);
+  }
+
+  function closeActionsMenuOutside(e) {
+    if (!actionsMenu.contains(e.target)) {
+      actionsMenu.classList.remove('visible');
+    }
+  }
+
+  function toggleActionsMenu(btn, e) {
+    e.stopPropagation();
+    if (actionsMenu.classList.contains('visible')) {
+      actionsMenu.classList.remove('visible');
+    } else {
+      openActionsMenu(btn);
+    }
+  }
+
+  document.getElementById('header-actions-btn').addEventListener('click', function(e) { toggleActionsMenu(this, e); });
+  document.getElementById('brain-actions-btn').addEventListener('click', function(e) { toggleActionsMenu(this, e); });
+
+  window.menuAction = function(action) {
+    actionsMenu.classList.remove('visible');
+    switch (action) {
+      case 'addMemory':
+        showAddModal();
+        break;
+      case 'scanWorkspace':
+        vscode.postMessage({ type: 'scanWorkspace' });
+        break;
+      case 'writeToContextFile':
+        vscode.postMessage({ type: 'writeToContextFile' });
+        break;
+      case 'changeRole':
+        document.getElementById('onboarding-step-1').style.display = '';
+        document.getElementById('onboarding-step-2').style.display = 'none';
+        document.getElementById('onboarding-overlay').classList.add('visible');
+        break;
+    }
+  };
+
+  // Search
+  document.getElementById('search-input').addEventListener('input', () => refreshMemoryView());
+
+  // ── Edit modal ──
+  function showEditModal(id) {
+    const m = memories.find(x => x.id === id);
+    if (!m) return;
+    editingMemoryId = id;
+    document.getElementById('edit-content').value = m.content;
+    document.getElementById('edit-tags').value = m.tags.join(', ');
+    const impPct = Math.round(m.importance * 100);
+    document.getElementById('edit-importance').value = impPct;
+    document.getElementById('edit-importance-val').textContent = impPct + '%';
+    document.getElementById('edit-modal-overlay').classList.add('visible');
+    setTimeout(() => document.getElementById('edit-content').focus(), 100);
+  }
+  window.hideEditModal = function() {
+    document.getElementById('edit-modal-overlay').classList.remove('visible');
+    editingMemoryId = null;
+  };
+  document.getElementById('edit-importance').addEventListener('input', function() {
+    document.getElementById('edit-importance-val').textContent = this.value + '%';
+  });
+  document.getElementById('edit-modal-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) hideEditModal(); });
+  window.saveEdit = function() {
+    if (!editingMemoryId) return;
+    const content = document.getElementById('edit-content').value.trim();
+    if (!content) return;
+    const tags = document.getElementById('edit-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+    const importance = parseInt(document.getElementById('edit-importance').value, 10) / 100;
+    vscode.postMessage({ type: 'updateMemory', id: editingMemoryId, patch: { content, summary: content.slice(0, 120), tags, importance } });
+    hideEditModal();
+  };
+  window.deleteFromEdit = function() {
+    if (!editingMemoryId) return;
+    vscode.postMessage({ type: 'requestDelete', id: editingMemoryId });
+    hideEditModal();
+  };
+
+  // ── Onboarding ──
+  const ROLE_LIST = [
+    { id:'frontend',  label:'Frontend Engineer',      emoji:'🎨' },
+    { id:'backend',   label:'Backend / Fullstack',     emoji:'⚙️' },
+    { id:'data',      label:'Data Engineer',           emoji:'📊' },
+    { id:'ml',        label:'ML Engineer',             emoji:'🧠' },
+    { id:'devops',    label:'DevOps / Platform',       emoji:'🔧' },
+    { id:'security',  label:'Security Engineer',       emoji:'🔒' },
+    { id:'gamedev',   label:'Game Developer',          emoji:'🎮' },
+    { id:'qa',        label:'QA / Test Automation',    emoji:'🧪' },
+    { id:'techlead',  label:'Technical Lead',          emoji:'🧭' },
+    { id:'vibe',      label:'Vibe Coder',              emoji:'✨' },
+  ];
+  let selectedRoleId = null;
+
+  (function buildRoleGrid() {
+    const grid = document.getElementById('role-grid');
+    ROLE_LIST.forEach(r => {
+      const btn = document.createElement('button');
+      btn.className = 'role-card';
+      btn.dataset.roleId = r.id;
+      btn.innerHTML = '<span class="role-emoji">'+r.emoji+'</span><span>'+r.label+'</span>';
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedRoleId = r.id;
+        document.getElementById('onboarding-confirm').disabled = false;
+      });
+      grid.appendChild(btn);
+    });
+  })();
+
+  window.showOnboarding = function() {
+    document.getElementById('onboarding-overlay').classList.add('visible');
+  };
+  window.dismissOnboarding = function() {
+    document.getElementById('onboarding-overlay').classList.remove('visible');
+    vscode.setState({ ...vscode.getState(), onboardingDone: true });
+  };
+  window.goToStep2 = function() {
+    if (!selectedRoleId) { return; }
+    vscode.postMessage({ type: 'setRole', roleId: selectedRoleId });
+    document.getElementById('onboarding-step-1').style.display = 'none';
+    document.getElementById('onboarding-step-2').style.display = '';
+  };
+  window.confirmRole = function() {
+    vscode.setState({ ...vscode.getState(), onboardingDone: true });
+    document.getElementById('onboarding-overlay').classList.remove('visible');
+  };
+  window.browseContextFile = function() {
+    document.getElementById('import-status').textContent = 'Waiting for file selection…';
+    vscode.postMessage({ type: 'browseImportFile' });
+  };
+
+  // ── Autocomplete suggestions ──
+  let roleSuggestions = [];
+
+  function buildSuggestions(filterText) {
+    const row = document.getElementById('suggestions-row');
+    if (!row) { return; }
+    row.innerHTML = '';
+    const q = filterText.toLowerCase();
+
+    // Role-based starters (show when empty or matching)
+    const starters = roleSuggestions.filter(s => !q || s.toLowerCase().includes(q));
+    starters.slice(0, 4).forEach(s => {
+      const chip = document.createElement('button');
+      chip.className = 'suggestion-chip';
+      chip.textContent = s;
+      chip.addEventListener('click', () => {
+        const ta = document.getElementById('memory-input');
+        ta.value = s.endsWith(':') || s.endsWith('…') ? s + ' ' : s;
+        ta.focus();
+        // Move cursor to end
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+        buildSuggestions(ta.value);
+      });
+      row.appendChild(chip);
+    });
+
+    // Top tags from existing memories (shown when no text typed)
+    if (!filterText) {
+      const tagCounts = {};
+      memories.forEach(m => m.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+      const topTags = Object.entries(tagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([t]) => t);
+      topTags.forEach(tag => {
+        const chip = document.createElement('button');
+        chip.className = 'suggestion-chip tag-chip';
+        chip.textContent = '#' + tag;
+        chip.addEventListener('click', () => {
+          const ta = document.getElementById('memory-input');
+          ta.value = (ta.value ? ta.value + ' ' : '') + '#' + tag + ' ';
+          ta.focus();
+          buildSuggestions(ta.value);
+        });
+        row.appendChild(chip);
+      });
+    }
+  }
+
+  document.getElementById('memory-input').addEventListener('input', function() {
+    buildSuggestions(this.value);
+  });
+
+  window.showAddModal = function() {
+    document.getElementById('modal-overlay').classList.add('visible');
+    setTimeout(() => {
+      document.getElementById('memory-input').focus();
+      buildSuggestions('');
+    }, 100);
+  };
+  window.hideModal = function() { document.getElementById('modal-overlay').classList.remove('visible'); document.getElementById('memory-input').value=''; };
+  window.addMemory = function() {
+    const content = document.getElementById('memory-input').value.trim();
+    if (!content) return;
+    vscode.postMessage({ type: 'addMemory', content });
+    hideModal();
+  };
+  document.getElementById('modal-overlay').addEventListener('click', e=>{ if(e.target===e.currentTarget) hideModal(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') { hideModal(); hideEditModal(); dismissOnboarding(); } });
+
+  // ── Extension message listener ──
+  function refreshMemoryView() {
+    if (selectedRegion) showRegionPanel(selectedRegion);
+    else showAllMemories();
+  }
+
+  window.addEventListener('message', event => {
+    const msg = event.data;
+    switch (msg.type) {
+      case 'init': {
+        memories = msg.state.memories || [];
+        if (msg.role) { applyRole(msg.role); }
+        // Show onboarding if no role has been chosen yet
+        if (!msg.role || msg.role.id === 'backend' && memories.length === 0) {
+          const dismissed = vscode.getState()?.onboardingDone;
+          if (!dismissed) { showOnboarding(); }
+        }
+        document.getElementById('total-count').innerHTML = '<strong>'+memories.length+'</strong> memories';
+        updateLegend();
+        refreshMemoryView();
+        break;
+      }
+      case 'memoryDeleted': {
+        memories = memories.filter(m => m.id !== msg.id);
+        document.getElementById('total-count').innerHTML = '<strong>'+memories.length+'</strong> memories';
+        updateLegend();
+        refreshMemoryView();
+        break;
+      }
+      case 'memoryUpdated': {
+        const idx = memories.findIndex(m => m.id === msg.memory.id);
+        if (idx !== -1) memories[idx] = msg.memory;
+        else memories.push(msg.memory);
+        updateLegend();
+        refreshMemoryView();
+        break;
+      }
+      case 'importStatus': {
+        const el = document.getElementById('import-status');
+        if (el) {
+          el.textContent = msg.text;
+          el.style.color = msg.ok ? '#7ec8a0' : 'var(--muted)';
+        }
+        if (msg.done) {
+          memories = msg.memories || memories;
+          document.getElementById('total-count').innerHTML = '<strong>'+memories.length+'</strong> memories';
+          updateLegend();
+          refreshMemoryView();
+          document.getElementById('onboarding-finish').textContent = 'Finish';
+        }
+        break;
+      }
+    }
+  });
+
+  // Gentle auto-rotation
+  let autoRotate = true;
+  canvas.addEventListener('mousedown', ()=>autoRotate=false);
+  canvas.addEventListener('mouseup', ()=>setTimeout(()=>autoRotate=true, 4000));
+  setInterval(()=>{ if(autoRotate && !isDragging) targetRotY += 0.0015; }, 16);
+
+  // ── Resize handle (dual-mode: row in narrow, col in wide) ──
+  const resizeHandle = document.getElementById('resize-handle');
+  const sidebar = document.getElementById('sidebar');
+  let isResizing = false;
+  let targetSidebarH = 160, currentSidebarH = 160;
+  let targetCanvasW = 0,    currentCanvasW = 0;
+
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    if (isWide) {
+      currentCanvasW = canvasArea.clientWidth;
+      targetCanvasW = currentCanvasW;
+    } else {
+      currentSidebarH = sidebar.clientHeight;
+      targetSidebarH = currentSidebarH;
+    }
+    resizeHandle.classList.add('active');
+    document.body.style.cursor = isWide ? 'col-resize' : 'row-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    if (isWide) {
+      targetCanvasW = Math.max(200, Math.min(window.innerWidth * 0.75, e.clientX));
+    } else {
+      const raw = document.body.clientHeight - e.clientY;
+      targetSidebarH = Math.max(120, Math.min(window.innerHeight * 0.6, raw));
+    }
+  });
+  document.addEventListener('mouseup', () => {
+    if (!isResizing) return;
+    isResizing = false;
+    resizeHandle.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+
+  // Spring tick — called from render loop
+  function tickSidebarResize() {
+    if (isWide) {
+      if (targetCanvasW === 0 || (!isResizing && Math.abs(currentCanvasW - targetCanvasW) < 0.3)) { return; }
+      const lerpK = isResizing ? 0.28 : 0.18;
+      currentCanvasW += (targetCanvasW - currentCanvasW) * lerpK;
+      canvasArea.style.width = currentCanvasW + 'px';
+    } else {
+      if (!isResizing && Math.abs(currentSidebarH - targetSidebarH) < 0.3) { return; }
+      const lerpK = isResizing ? 0.28 : 0.18;
+      currentSidebarH += (targetSidebarH - currentSidebarH) * lerpK;
+      sidebar.style.height = currentSidebarH + 'px';
+    }
+    resize();
+    resizeOverlay();
+    updateVisibility();
+  }
+
+  // ── Header + sidebar visibility — unified thresholds for both counters ──
+  const taglineEl = document.querySelector('.tagline');
+  const totalEl = document.getElementById('total-count');
+  const sidebarDescEl = document.getElementById('sidebar-desc');
+  const sidebarCountEl = document.getElementById('sidebar-count');
+
+  function updateHeaderVisibility() {
+    const w = document.body.clientWidth;
+    // Tagline: fades out 360→270px — fully gone before counts start fading
+    const taglineT = Math.max(0, Math.min(1, (w - 270) / 90));
+    taglineEl.style.opacity = taglineT * 0.7;
+    taglineEl.style.maxWidth = (taglineT * 220) + 'px';
+    // Both counters snap hidden below 235px (no fade — hard cutoff)
+    const showCount = w >= 235;
+    totalEl.style.opacity = showCount ? '1' : '0';
+    totalEl.style.maxWidth = showCount ? '150px' : '0';
+    sidebarCountEl.style.opacity = showCount ? '1' : '0';
+    sidebarCountEl.style.maxWidth = showCount ? '120px' : '0';
+  }
+
+  function updateSidebarVisibility() {
+    const h = sidebar.clientHeight;
+    // Desc: fade out as sidebar gets short (below ~180px)
+    const descT = Math.max(0, Math.min(1, (h - 148) / 32));
+    sidebarDescEl.style.opacity = descT;
+    sidebarDescEl.style.maxHeight = (descT * 20) + 'px';
+  }
+
+  // Single entry point — always run both so counters stay in sync
+  function updateVisibility() {
+    updateHeaderVisibility();
+    updateSidebarVisibility();
+  }
+
+  window.addEventListener('resize', updateVisibility);
+
+  // ── Layout mode (wide = editor pane, narrow = side pane) ──
+  const canvasArea = document.getElementById('canvas-area');
+  let isWide = false;
+
+  function applyLayout() {
+    const newWide = window.innerWidth > 600;
+    if (newWide !== isWide) {
+      isWide = newWide;
+      document.body.classList.toggle('wide', isWide);
+      if (isWide) {
+        currentCanvasW = canvasArea.clientWidth || window.innerWidth * 0.5;
+        targetCanvasW = currentCanvasW;
+        sidebar.style.height = '';
+      } else {
+        canvasArea.style.width = '';
+        sidebar.style.height = currentSidebarH + 'px';
+      }
+    }
+    resize();
+    resizeOverlay();
+    updateVisibility();
+  }
+
+  applyLayout();
+  updateVisibility();
+
+  render();
+})();
+</script>
+</body>
+</html>
