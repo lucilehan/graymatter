@@ -41,16 +41,19 @@ On first open, GrayMatter scans your workspace for known AI context files (`CLAU
 
 ## Installation
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/lucilehan.graymatter?label=VS%20Code%20Marketplace&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=lucilehan.graymatter)
+[![Open VSX](https://img.shields.io/open-vsx/v/lucilehan/graymatter?label=Open%20VSX&logo=vscodium)](https://open-vsx.org/extension/lucilehan/graymatter)
+
 ### VS Code Marketplace
-Search **"GrayMatter"** in the Extensions sidebar.
+[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=lucilehan.graymatter) — or search **"GrayMatter Memory"** in the Extensions sidebar.
+
+### Open VSX (Gitpod, VSCodium, etc.)
+[Install from Open VSX](https://open-vsx.org/extension/lucilehan/graymatter) — or search **"GrayMatter Memory"** in the Extensions sidebar.
 
 ### Manual
 ```
-code --install-extension graymatter-0.1.0.vsix
+code --install-extension graymatter-0.1.1.vsix
 ```
-
-### Open VSX (Gitpod, VSCodium, etc.)
-Search **"GrayMatter"** in the Extensions sidebar.
 
 ---
 
