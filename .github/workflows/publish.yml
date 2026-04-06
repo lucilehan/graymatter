@@ -40,8 +40,13 @@ jobs:
       - name: Publish to Open VSX
         run: npx ovsx publish graymatter-${{ steps.version.outputs.VERSION }}.vsix -p ${{ secrets.OVSX_PAT }}
 
+      - name: Get latest commit message
+        id: commit
+        run: echo "MSG=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: "*.vsix"
           generate_release_notes: true
+          name: "v${{ steps.version.outputs.VERSION }}: ${{ steps.commit.outputs.MSG }}"
