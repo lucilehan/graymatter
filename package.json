@@ -1,6 +1,6 @@
 {
   "name": "graymatter",
-  "displayName": "GrayMatter",
+  "displayName": "GrayMatter Memory",
   "description": "Visualize and manage your AI agent's memory traces as an interactive 3D brain",
   "version": "0.1.1",
   "publisher": "lucilehan",
