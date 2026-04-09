@@ -50,4 +50,4 @@ jobs:
         with:
           files: "*.vsix"
           generate_release_notes: true
-          name: "v${{ steps.version.outputs.VERSION }}: ${{ steps.commit.outputs.MSG }}"
+          name: "${{ steps.commit.outputs.MSG }}"
