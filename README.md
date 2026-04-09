@@ -4,6 +4,14 @@
 
 GrayMatter lives in your editor as a raymarched 3D brain. Every memory your AI agent stores gets mapped to an anatomical region — rotate, zoom, and click to explore what it knows.
 
+<p align="center">
+  <img src="media/1.%20Role.png"   width="31%" alt="Onboarding — pick your role" />
+  &nbsp;
+  <img src="media/2.%20Import.png" width="31%" alt="Onboarding — import context" />
+  &nbsp;
+  <img src="media/3.%20Brain.png"  width="31%" alt="Brain view with memories" />
+</p>
+
 ---
 
 ## What it does
