@@ -70,6 +70,17 @@
     white-space: nowrap; overflow: hidden; max-width: 150px;
     flex-shrink: 0; margin-left: 8px; transition: none;
   }
+  #health-badge {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.4px;
+    padding: 2px 7px; border-radius: 100px; cursor: default;
+    border: 1px solid transparent; white-space: nowrap; flex-shrink: 0;
+    transition: background 0.3s, color 0.3s;
+  }
+  #health-badge.empty   { background: #2a2a2a; color: #666; border-color: #333; }
+  #health-badge.sparse  { background: #2a1a1a; color: #cc8888; border-color: #4a2a2a; }
+  #health-badge.growing { background: #2a2a1a; color: #ccb84a; border-color: #4a4a1a; }
+  #health-badge.healthy { background: #1a2a1a; color: #6abf6a; border-color: #2a4a2a; }
+  #health-badge.excellent { background: #1a2a3a; color: #6ab0f5; border-color: #2a4a6a; }
   header .total strong {
     color: var(--accent-pale); font-size: 14px;
   }
@@ -357,13 +368,31 @@
   .modal-actions .danger { background: none; border-color: rgba(255,80,80,0.3); color: #ff6b6b; }
   .modal-actions .danger:hover { background: rgba(255,80,80,0.1); }
   .role-card {
-    padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
-    transition: all 0.15s; background: var(--bg-deep); display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+    transition: all 0.15s; background: var(--bg-deep); display: flex; align-items: center; gap: 10px;
     font-size: 12px; font-family: inherit; color: var(--fg); text-align: left; width: 100%;
   }
-  .role-card:hover { border-color: #555; background: var(--bg-mid); }
-  .role-card.selected { border-color: rgba(205,120,145,0.7); background: rgba(205,120,145,0.1); }
-  .role-card .role-emoji { font-size: 16px; flex-shrink: 0; }
+  .role-card:hover { border-color: #555; background: var(--bg-mid); transform: translateY(-1px); }
+  .role-card.selected { border-color: #888; background: rgba(255,255,255,0.06); }
+  .role-card .role-emoji { font-size: 18px; flex-shrink: 0; }
+  /* Onboarding step indicator */
+  .ob-step-row { display:flex; align-items:center; gap:8px; margin-bottom:22px; }
+  .ob-step-dot {
+    width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; border:2px solid var(--border); color:var(--muted);
+    background:var(--bg-deep); flex-shrink:0; transition:all 0.25s;
+  }
+  .ob-step-dot.active { border-color:var(--accent-mid); color:var(--accent-pale); background:rgba(255,255,255,0.06); }
+  .ob-step-dot.done { border-color:#666; background:rgba(255,255,255,0.08); color:var(--accent-mid); font-size:13px; }
+  .ob-step-line { flex:1; height:2px; background:var(--border); border-radius:1px; transition:background 0.3s; }
+  .ob-step-line.done { background:#555; }
+  .ob-step-lbl { font-size:10px; color:var(--muted); letter-spacing:0.6px; margin-left:4px; }
+  /* Import drop zone */
+  .ob-drop-zone {
+    border: 1px dashed var(--border); border-radius: 12px; padding: 22px 16px;
+    text-align: center; margin-bottom: 16px; transition: border-color 0.2s, background 0.2s;
+  }
+  .ob-drop-zone.importing { border-color: #666; background: rgba(255,255,255,0.03); }
   .modal-actions button:disabled { opacity: 0.35; cursor: not-allowed; }
   #edit-modal-overlay { z-index: 110; }
   #edit-modal .field-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; margin-top: 10px; letter-spacing: 0.4px; }
@@ -378,7 +407,8 @@
     <h1>GrayMatter</h1>
     <span class="tagline">agent memory traces</span>
   </div>
-  <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+    <span id="health-badge" class="empty" title="Brain health score"></span>
     <div class="total" id="total-count"></div>
     <button class="actions-btn" id="header-actions-btn" title="More actions">⋯</button>
   </div>
@@ -471,29 +501,41 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="onboarding-overlay" style="z-index:120;align-items:flex-start;padding-top:40px;">
-  <div class="modal" id="onboarding-modal" style="width:480px;">
+<div class="modal-overlay" id="onboarding-overlay" style="z-index:120;align-items:center;">
+  <div class="modal" id="onboarding-modal" style="width:500px;max-height:90vh;overflow-y:auto;">
+
+    <!-- Step indicator -->
+    <div class="ob-step-row">
+      <div class="ob-step-dot active" id="ob-dot-1">1</div>
+      <div class="ob-step-line" id="ob-line"></div>
+      <div class="ob-step-dot" id="ob-dot-2">2</div>
+      <span class="ob-step-lbl" id="ob-step-lbl">YOUR ROLE</span>
+    </div>
 
     <!-- Step 1: role -->
     <div id="onboarding-step-1">
       <h3 style="margin-bottom:6px;">Welcome to GrayMatter</h3>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.6;">Pick your role so GrayMatter can label brain regions and categorize memories in a way that makes sense for your work.</p>
-      <div id="role-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;"></div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.65;">Choose your role so GrayMatter can label brain regions and categorize memories in a way that makes sense for your work.</p>
+      <div id="role-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;"></div>
       <div class="modal-actions">
-        <button onclick="dismissOnboarding()">Skip</button>
-        <button class="primary" id="onboarding-confirm" onclick="goToStep2()" disabled>Next →</button>
+        <button onclick="dismissOnboarding()">Skip setup</button>
+        <button class="primary" id="onboarding-confirm" onclick="goToStep2()" disabled>Choose role →</button>
       </div>
     </div>
 
     <!-- Step 2: import -->
     <div id="onboarding-step-2" style="display:none;">
       <h3 style="margin-bottom:6px;">Import existing context</h3>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6;">Do you have an existing context file? GrayMatter will parse it and categorize each entry into your brain automatically.<br><span style="opacity:0.5;">Supports CLAUDE.md, .cursorrules, AGENTS.md, or any markdown file.</span></p>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.65;">Have a CLAUDE.md, .cursorrules, AGENTS.md, or other markdown file? GrayMatter will parse each entry into your brain automatically.</p>
+      <div class="ob-drop-zone" id="ob-drop-zone">
+        <div style="font-size:11px;color:var(--fg);margin-bottom:4px;">Browse for a context file</div>
+        <div style="font-size:11px;color:var(--muted);">CLAUDE.md · .cursorrules · AGENTS.md · any .md</div>
+      </div>
       <div id="import-status" style="font-size:11px;color:var(--muted);min-height:20px;margin-bottom:14px;"></div>
       <div class="modal-actions">
-        <button onclick="confirmRole()">Skip</button>
+        <button onclick="skipToSamples()" title="Load demo memories so you can explore GrayMatter immediately">Use sample memories</button>
         <button onclick="browseContextFile()" style="border-color:#555;">Browse file…</button>
-        <button class="primary" id="onboarding-finish" onclick="confirmRole()">Finish</button>
+        <button class="primary" id="onboarding-finish" onclick="confirmRole()">Finish →</button>
       </div>
     </div>
 
@@ -511,6 +553,14 @@
     cerebellum: { label: 'Habits & Workflows',     desc: 'Routines, commit conventions, processes', examples: '"Run tests first", "Conventional commits"', color: '#ffeaa7' },
     limbic:     { label: 'Preferences & Style',    desc: 'Personal tastes, language prefs, opinions', examples: '"Prefers TypeScript", "Dark mode"', color: '#dda0dd' }
   };
+
+  function updateHealthBadge(health) {
+    const el = document.getElementById('health-badge');
+    if (!el) { return; }
+    el.textContent = health.label;
+    el.className = health.label.toLowerCase();
+    el.title = `Brain health: ${health.score}/100 — ${health.detail}`;
+  }
 
   function applyRole(role) {
     if (!role?.regions) { return; }
@@ -649,108 +699,81 @@
     }
 
     // ── Brain SDF ──
+    // Design intent: simplified but unmistakably a brain.
+    // Two hemispheres → 6 fat gyri bands → 2 deep named sulci → cerebellum.
+    // Less is more: fewer grooves read cleaner in halftone.
     float brainSDF(vec3 p) {
-      // ── Main cerebrum: wide bilateral ellipsoid ──
-      vec3 ce = vec3(p.x / 1.12, (p.y + 0.04) / 0.86, p.z / 0.90);
-      float cerebrum = length(ce) - 1.0;
 
-      // Frontal lobe — forward-projecting rounded lobe
-      float frontal = length(vec3(p.x / 0.80, (p.y + 0.08) / 0.72, (p.z - 0.52) / 0.65)) - 1.0;
-      cerebrum = smin(cerebrum, frontal, 0.34);
+      // ── 1. SHAPE: two offset hemispheres ──────────────────────────────────
+      // Blending two ellipsoids with smin naturally produces:
+      //   • the walnut top-down silhouette (two bumps)
+      //   • a raised ridge along the fissure line
+      // Cerebrum is slightly wider than tall and elongated front-to-back.
+      float hemL = length(vec3((p.x + 0.26) / 0.74, p.y / 0.86, p.z / 0.96)) - 1.0;
+      float hemR = length(vec3((p.x - 0.26) / 0.74, p.y / 0.86, p.z / 0.96)) - 1.0;
+      float d = smin(hemL, hemR, 0.30);
 
-      // Temporal lobes — lateral inferior projection
-      float tempL = length(vec3((p.x - 0.62) / 0.46, (p.y - 0.10) / 0.40, (p.z - 0.04) / 0.52)) - 1.0;
-      float tempR = length(vec3((p.x + 0.62) / 0.46, (p.y - 0.10) / 0.40, (p.z - 0.04) / 0.52)) - 1.0;
-      cerebrum = smin(cerebrum, tempL, 0.20);
-      cerebrum = smin(cerebrum, tempR, 0.20);
+      // ── 2. LONGITUDINAL FISSURE ───────────────────────────────────────────
+      // Narrow Gaussian crack running down the top-center.
+      // This + the two-hemisphere shape = instant brain recognition from any angle.
+      d += exp(-p.x * p.x * 90.0) * smoothstep(0.45, -0.22, p.y) * 0.56;
 
-      // ── Longitudinal fissure — the #1 brain recognition cue ──
-      // Sharp Gaussian groove running top-center, separating two hemispheres.
-      // exp(-x²*110) is narrow (~0.14 units wide), * 0.38 makes it deep enough
-      // to clearly bisect the top when viewed from front or above.
-      float fissure = exp(-p.x * p.x * 110.0) * smoothstep(0.30, -0.78, p.y);
-      cerebrum += fissure * 0.38;
+      // ── 3. TEMPORAL LOBES ─────────────────────────────────────────────────
+      // The ear-like downward projections visible in the lateral-view reference.
+      float tL = length(vec3((p.x + 0.62) / 0.42, (p.y + 0.44) / 0.34, (p.z - 0.08) / 0.54)) - 1.0;
+      float tR = length(vec3((p.x - 0.62) / 0.42, (p.y + 0.44) / 0.34, (p.z - 0.08) / 0.54)) - 1.0;
+      d = smin(d, tL, 0.16);
+      d = smin(d, tR, 0.16);
 
-      // Cerebellum (lower back)
-      float cb = length(vec3(p.x / 0.54, (p.y - 0.40) / 0.29, (p.z + 0.44) / 0.34)) - 1.0;
-      cerebrum = smin(cerebrum, cb, 0.11);
+      // ── 4. CEREBELLUM ─────────────────────────────────────────────────────
+      // Smaller distinct lobe at lower-back. Horizontal ridges differentiate it
+      // from the smooth cerebrum — key for the line-art reference look.
+      float cb = length(vec3(p.x / 0.52, (p.y + 0.62) / 0.24, (p.z + 0.65) / 0.36)) - 1.0;
+      d = smin(d, cb, 0.08);
+      vec3 cbRel = p - vec3(0.0, -0.62, -0.65);
+      float cbD   = length(cbRel / vec3(0.52, 0.24, 0.36));
+      d += sin(p.y * 30.0) * 0.018 * (1.0 - smoothstep(0.85, 1.35, cbD));
 
-      // Brain stem
-      float stem = length(vec2(p.x, p.z + 0.22)) - 0.12;
-      stem = max(stem, p.y - 0.55);
-      stem = max(stem, -p.y + 0.15);
-      cerebrum = smin(cerebrum, stem, 0.08);
+      // ── 5. GYRI ───────────────────────────────────────────────────────────
+      // 4 fat latitude bands (phi) + 2 meridian bands (theta) = the coiled-rope
+      // pattern from the pink 3D reference. sharpness 2.0 = smooth rounded peaks,
+      // not sharp ridges. This reads beautifully in halftone: big dots on peaks,
+      // tiny/no dots in valleys.
+      float r     = length(p);
+      float phi   = acos(clamp(p.y / max(r, 0.001), -1.0, 1.0)); // 0=crown, PI=chin
+      float theta = atan(p.x, p.z);                                // lateral wrap
 
-      // ── Gyri using spherical coordinates ──────────────────────────────────
-      // phi/theta produce latitude/longitude bands that wrap naturally around
-      // the brain surface — the organized, worm-like texture of real gyri.
-      // In this coord system: -y = top, +y = bottom, +z = front.
-      float r = length(p);
-      float phi   = acos(clamp(-p.y / max(r, 0.001), -1.0, 1.0)); // 0=top, PI=bottom
-      float theta = atan(p.x, p.z);  // 0=front, PI/2=right
+      float g = 0.0;
+      // 4 latitude bands — the sweeping front-to-back arcs seen in the reference
+      g += gv(phi *  5.5 + sin(theta * 1.8) * 2.0, 2.0) * 0.125;
+      g += gv(phi *  8.5 - sin(theta * 2.2) * 1.6, 2.0) * 0.108;
+      g += gv(phi * 11.5 + cos(theta * 2.0) * 1.4, 2.0) * 0.088;
+      g += gv(phi * 14.5 - cos(theta * 1.6) * 1.2, 2.0) * 0.068;
+      // 2 meridian bands — crossing folds that create the worm-like coil pattern
+      g += gv(theta * 4.5 + sin(phi * 2.0) * 1.8, 2.2) * 0.062;
+      g += gv(theta * 7.8 - sin(phi * 1.6) * 1.4, 2.2) * 0.045;
 
-      float sulci = 0.0;
-      // Primary — wide rounded ridges (sharpness 5.5 → narrow sulci, broad gyri)
-      sulci += gv(phi * 7.5  + sin(theta * 2.0) * 1.2,             5.5) * 0.110;
-      sulci += gv(phi * 10.0 - sin(theta * 1.6) * 0.9,             5.5) * 0.095;
-      sulci += gv(theta * 5.8 + sin(phi * 3.0) * 1.1,              5.2) * 0.088;
-      sulci += gv(theta * 8.4 - cos(phi * 2.2) * 0.8,              5.2) * 0.074;
-      // Secondary
-      sulci += gv(phi * 13.0 + theta * 1.8 + sin(theta*3.0)*0.5,   5.8) * 0.052;
-      sulci += gv(theta * 11.5 + phi * 2.8 + cos(phi*4.0)*0.5,     5.8) * 0.043;
-      sulci += gv(phi * 15.5 - theta * 2.5 - sin(phi*5.0)*0.4,     6.0) * 0.033;
-      sulci += gv(theta * 14.0 + phi * 4.0 + cos(theta*5.5)*0.3,   6.0) * 0.025;
-      // Fine texture
-      sulci += gv(phi * 20.0 + theta * 5.5 + sin(theta*7.0)*0.3,   6.5) * 0.013;
-      sulci += gv(theta * 17.5 + phi * 8.5 + cos(phi*9.0)*0.3,     6.5) * 0.009;
+      // Keep gyri off the very bottom and off the center fissure line
+      float gMask = smoothstep(-0.42, 0.28, p.y) * smoothstep(0.04, 0.18, abs(p.x));
+      d += g * (0.50 + gMask * 0.50);
 
-      float topMask = smoothstep(0.30, -0.80, p.y);
-      cerebrum += sulci * (0.56 + topMask * 0.44);
+      // ── 6. TWO NAMED SULCI ────────────────────────────────────────────────
+      // Only the two most structurally important grooves. Fewer deep cuts read
+      // cleaner than many shallow ones — especially in halftone dot rendering.
 
-      // ── Named anatomical sulci ─────────────────────────────────────────────
-      // Central sulcus — curved ear-to-ear groove
-      float centralS = abs(p.z - 0.05 + p.y * 0.28 + sin(p.x * 2.5) * 0.06);
-      float centralMask = smoothstep(0.75, 0.08, abs(p.x)) * smoothstep(0.15, -0.75, p.y);
-      cerebrum += max(0.0, 0.060 - centralS * 0.35) * centralMask * 5.8;
+      // Sylvian (lateral) fissure: the long diagonal groove separating the
+      // temporal lobe from frontal/parietal. Most visible in the side-view reference.
+      float sylv  = abs(p.y + 0.16 + p.z * 0.20 - abs(p.x) * 0.05);
+      float sylvM = smoothstep(0.80, 0.07, abs(p.x)) * smoothstep(0.56, -0.18, p.z);
+      d += exp(-sylv * sylv * 55.0) * sylvM * 0.08;
 
-      // Lateral / Sylvian fissure — deepest groove
-      float sylvian = abs(p.y + 0.05 + p.z * 0.14 - p.x * 0.08 + sin(p.z * 2.0) * 0.04);
-      float sylvianMask = smoothstep(0.82, 0.08, abs(p.x)) * smoothstep(0.52, -0.30, p.z);
-      cerebrum += max(0.0, 0.062 - sylvian * 0.32) * sylvianMask * 6.5;
+      // Central sulcus: curves ear-to-ear across the crown, separating motor
+      // from sensory cortex — the primary top-surface groove.
+      float cent  = abs(p.z - 0.04 + p.y * 0.36 + sin(p.x * 1.5) * 0.10);
+      float centM = smoothstep(0.66, 0.05, abs(p.x)) * smoothstep(0.26, -0.58, p.y);
+      d += exp(-cent * cent * 55.0) * centM * 0.075;
 
-      // Superior temporal sulcus
-      float stS = abs(p.y + 0.20 + p.z * 0.10 - p.x * 0.05 + cos(p.z * 2.2) * 0.03);
-      float stMask = smoothstep(0.80, 0.12, abs(p.x)) * smoothstep(0.44, -0.16, p.z);
-      cerebrum += max(0.0, 0.045 - stS * 0.38) * stMask * 4.8;
-
-      // Precentral sulcus
-      float precentralS = abs(p.z - 0.24 + p.y * 0.22 + sin(p.x * 3.0) * 0.05);
-      float precentralMask = smoothstep(0.65, 0.08, abs(p.x)) * smoothstep(0.18, -0.64, p.y);
-      cerebrum += max(0.0, 0.048 - precentralS * 0.35) * precentralMask * 4.8;
-
-      // Postcentral sulcus
-      float postcentralS = abs(p.z + 0.14 + p.y * 0.28 + cos(p.x * 2.8) * 0.05);
-      float postcentralMask = smoothstep(0.62, 0.08, abs(p.x)) * smoothstep(0.12, -0.64, p.y);
-      cerebrum += max(0.0, 0.044 - postcentralS * 0.36) * postcentralMask * 4.5;
-
-      // Intraparietal sulcus
-      float ipS = abs(p.x - 0.14 + p.z * 0.08 + sin(p.z * 3.5) * 0.04) * smoothstep(0.02, -0.28, p.z) * smoothstep(-0.28, -0.72, p.y);
-      cerebrum += max(0.0, 0.034 - ipS * 0.27) * 4.0;
-
-      // Parieto-occipital sulcus
-      float poS = abs(p.z + 0.46 + p.y * 0.38 + sin(p.x * 2.0) * 0.04);
-      float poMask = smoothstep(0.52, 0.05, abs(p.x)) * smoothstep(0.02, -0.52, p.y);
-      cerebrum += max(0.0, 0.048 - poS * 0.33) * poMask * 4.8;
-
-      // Superior frontal sulcus
-      float sfS = abs(p.x - 0.30 + sin(p.z * 3.0) * 0.05) * smoothstep(0.72, 0.18, p.z) * smoothstep(-0.08, -0.64, p.y);
-      cerebrum += max(0.0, 0.034 - sfS * 0.25) * 4.0;
-
-      // Inferior frontal sulcus
-      float ifS = abs(p.x - 0.54 + cos(p.z * 2.5) * 0.04) * smoothstep(0.62, 0.08, p.z) * smoothstep(0.12, -0.30, p.y);
-      cerebrum += max(0.0, 0.030 - ifS * 0.29) * 3.8;
-
-      return cerebrum;
+      return d * 0.78;
     }
 
     // ── Scene SDF ──
@@ -1554,6 +1577,7 @@
       case 'changeRole':
         document.getElementById('onboarding-step-1').style.display = '';
         document.getElementById('onboarding-step-2').style.display = 'none';
+        setOnboardingStep(1);
         document.getElementById('onboarding-overlay').classList.add('visible');
         break;
     }
@@ -1630,25 +1654,55 @@
     });
   })();
 
+  let importDone = false;
+
+  function setOnboardingStep(step) {
+    const dot1 = document.getElementById('ob-dot-1');
+    const dot2 = document.getElementById('ob-dot-2');
+    const line = document.getElementById('ob-line');
+    const lbl = document.getElementById('ob-step-lbl');
+    if (step === 1) {
+      dot1.className = 'ob-step-dot active'; dot1.textContent = '1';
+      dot2.className = 'ob-step-dot';
+      line.className = 'ob-step-line';
+      lbl.textContent = 'YOUR ROLE';
+    } else {
+      dot1.className = 'ob-step-dot done'; dot1.textContent = '✓';
+      dot2.className = 'ob-step-dot active';
+      line.className = 'ob-step-line done';
+      lbl.textContent = 'IMPORT CONTEXT';
+    }
+  }
+
   window.showOnboarding = function() {
+    setOnboardingStep(1);
     document.getElementById('onboarding-overlay').classList.add('visible');
   };
   window.dismissOnboarding = function() {
     document.getElementById('onboarding-overlay').classList.remove('visible');
     vscode.setState({ ...vscode.getState(), onboardingDone: true });
+    if (!importDone) { vscode.postMessage({ type: 'seedSamples' }); }
   };
   window.goToStep2 = function() {
     if (!selectedRoleId) { return; }
     vscode.postMessage({ type: 'setRole', roleId: selectedRoleId });
     document.getElementById('onboarding-step-1').style.display = 'none';
     document.getElementById('onboarding-step-2').style.display = '';
+    setOnboardingStep(2);
   };
   window.confirmRole = function() {
     vscode.setState({ ...vscode.getState(), onboardingDone: true });
     document.getElementById('onboarding-overlay').classList.remove('visible');
+    if (!importDone) { vscode.postMessage({ type: 'seedSamples' }); }
+  };
+  window.skipToSamples = function() {
+    document.getElementById('onboarding-overlay').classList.remove('visible');
+    vscode.setState({ ...vscode.getState(), onboardingDone: true });
+    vscode.postMessage({ type: 'seedSamples' });
   };
   window.browseContextFile = function() {
     document.getElementById('import-status').textContent = 'Waiting for file selection…';
+    document.getElementById('ob-drop-zone')?.classList.add('importing');
     vscode.postMessage({ type: 'browseImportFile' });
   };
 
@@ -1740,6 +1794,7 @@
           if (!dismissed) { showOnboarding(); }
         }
         document.getElementById('total-count').innerHTML = '<strong>'+memories.length+'</strong> memories';
+        if (msg.state.health) { updateHealthBadge(msg.state.health); }
         updateLegend();
         refreshMemoryView();
         break;
@@ -1766,11 +1821,13 @@
           el.style.color = msg.ok ? '#7ec8a0' : 'var(--muted)';
         }
         if (msg.done) {
+          importDone = true;
           memories = msg.memories || memories;
           document.getElementById('total-count').innerHTML = '<strong>'+memories.length+'</strong> memories';
           updateLegend();
           refreshMemoryView();
-          document.getElementById('onboarding-finish').textContent = 'Finish';
+          document.getElementById('ob-drop-zone')?.classList.remove('importing');
+          document.getElementById('onboarding-finish').textContent = 'Finish →';
         }
         break;
       }

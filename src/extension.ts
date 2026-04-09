@@ -52,19 +52,103 @@ export function activate(context: vscode.ExtensionContext): void {
   // Auto-open editor panel on every activation
   BrainPanel.createOrShow(context.extensionUri, store, claude, context.globalState);
 
+  // ── Feature: Proactive Memory Surface ────────────────────────────────────
+  const memoryStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
+  memoryStatusBar.command = 'claudeBrain.showRelevantMemories';
+  memoryStatusBar.tooltip = 'GrayMatter: Click to see memories relevant to this file';
+  context.subscriptions.push(memoryStatusBar);
+
+  function updateMemoryStatusBar(editor: vscode.TextEditor | undefined) {
+    const memories = store.getAll();
+    if (!memories.length || !editor) { memoryStatusBar.hide(); return; }
+    const query = [
+      path.basename(editor.document.fileName, path.extname(editor.document.fileName)),
+      editor.document.languageId
+    ].join(' ');
+    const words = query.toLowerCase().split(/[\s._-]+/).filter(w => w.length > 2);
+    const relevant = memories.filter(m => {
+      const hay = (m.summary + ' ' + m.content + ' ' + m.tags.join(' ')).toLowerCase();
+      return words.some(w => hay.includes(w));
+    });
+    if (!relevant.length) { memoryStatusBar.hide(); return; }
+    memoryStatusBar.text = `$(pulse) ${relevant.length} ${relevant.length === 1 ? 'memory' : 'memories'}`;
+    memoryStatusBar.show();
+  }
+
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(e => updateMemoryStatusBar(e))
+  );
+  store.onDidChange(() => updateMemoryStatusBar(vscode.window.activeTextEditor));
+  updateMemoryStatusBar(vscode.window.activeTextEditor);
+
+  context.subscriptions.push(vscode.commands.registerCommand('claudeBrain.showRelevantMemories', async () => {
+    const editor = vscode.window.activeTextEditor;
+    const memories = store.getAll();
+    if (!memories.length) { vscode.window.showInformationMessage('GrayMatter: No memories stored yet.'); return; }
+    const query = editor
+      ? [path.basename(editor.document.fileName, path.extname(editor.document.fileName)), editor.document.languageId].join(' ')
+      : '';
+    const relevant = query ? claude.rankByRelevance(query, memories, 10) : memories.slice(0, 10);
+    const fileName = editor ? path.basename(editor.document.fileName) : 'your workspace';
+    const iconMap: Record<string, string> = {
+      frontal: 'lightbulb', temporal: 'history', parietal: 'code',
+      occipital: 'eye', cerebellum: 'sync', limbic: 'heart'
+    };
+    const items = relevant.map(m => ({
+      label: `$(${iconMap[m.region] ?? 'circle'}) ${m.summary}`,
+      description: m.region,
+      detail: m.content !== m.summary ? m.content.slice(0, 120) : undefined,
+      memory: m
+    }));
+    const picked = await vscode.window.showQuickPick(items, {
+      title: `GrayMatter — relevant to ${fileName}`,
+      placeHolder: 'Select a memory to inspect'
+    });
+    if (picked) { vscode.commands.executeCommand('claudeBrain.inspectMemory', (picked as any).memory); }
+  }));
+
+  // ── Feature: Team Brain Export ────────────────────────────────────────────
+  context.subscriptions.push(vscode.commands.registerCommand('claudeBrain.exportTeamBrain', async () => {
+    const all = store.getAll();
+    const shared = all.filter(m => m.shared);
+    let toExport = shared;
+
+    if (!shared.length) {
+      const choice = await vscode.window.showInformationMessage(
+        'No memories are marked as shared yet. Share individual memories by clicking ⬆ Share on a memory card, or export all memories now.',
+        'Export All', 'Cancel'
+      );
+      if (choice !== 'Export All') { return; }
+      toExport = all;
+    }
+
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file('graymatter-team.json'),
+      filters: { 'JSON': ['json'] },
+      title: 'Save Team Brain snapshot'
+    });
+    if (!uri) { return; }
+    fs.writeFileSync(uri.fsPath, JSON.stringify(toExport, null, 2), 'utf-8');
+    vscode.window.showInformationMessage(
+      `GrayMatter: Exported ${toExport.length} ${shared.length ? 'shared' : ''} memories as team brain.`,
+      'Open file'
+    ).then(a => { if (a === 'Open file') { vscode.window.showTextDocument(uri); } });
+  }));
+
   context.subscriptions.push(vscode.commands.registerCommand('claudeBrain.menu', async () => {
     const items: vscode.QuickPickItem[] = [
-      { label: '$(add) Add Memory',             description: 'Store something new in your brain' },
-      { label: '$(clippy) Copy Relevant Context', description: 'Inject memories into your next prompt' },
-      { label: '$(beaker) Distill Memories',     description: 'Merge redundant memories with Claude' },
+      { label: '$(add) Add Memory',               description: 'Store something new in your brain' },
+      { label: '$(clippy) Copy Relevant Context',  description: 'Inject memories into your next prompt' },
+      { label: '$(beaker) Distill Memories',       description: 'Merge redundant memories with Claude' },
       { label: '', kind: vscode.QuickPickItemKind.Separator },
-      { label: '$(cloud-download) Import',       description: 'Import from JSON or markdown files' },
-      { label: '$(cloud-upload) Export as JSON', description: 'Export all memories as JSON' },
-      { label: '$(sync) Write to context file',  description: 'Overwrite CLAUDE.md, .cursorrules, or any markdown file' },
+      { label: '$(cloud-download) Import',         description: 'Import from JSON or markdown files' },
+      { label: '$(cloud-upload) Export as JSON',   description: 'Export all memories as JSON' },
+      { label: '$(organization) Export Team Brain', description: 'Share marked memories with your team' },
+      { label: '$(sync) Write to context file',    description: 'Overwrite CLAUDE.md, .cursorrules, or any markdown file' },
       { label: '', kind: vscode.QuickPickItemKind.Separator },
-      { label: '$(search) Scan Workspace',        description: 'Auto-detect conventions and stack from project files' },
+      { label: '$(search) Scan Workspace',          description: 'Auto-detect conventions and stack from project files' },
       { label: '', kind: vscode.QuickPickItemKind.Separator },
-      { label: '$(trash) Clear All',             description: 'Wipe entire memory store' },
+      { label: '$(trash) Clear All',               description: 'Wipe entire memory store' },
     ];
     const picked = await vscode.window.showQuickPick(items, {
       placeHolder: 'GrayMatter — choose an action',
@@ -76,6 +160,7 @@ export function activate(context: vscode.ExtensionContext): void {
     else if (picked.label.includes('Distill'))         { vscode.commands.executeCommand('claudeBrain.distill'); }
     else if (picked.label.includes('Import'))          { vscode.commands.executeCommand('claudeBrain.importMemories'); }
     else if (picked.label.includes('Export as JSON'))   { vscode.commands.executeCommand('claudeBrain.exportMemories'); }
+    else if (picked.label.includes('Export Team Brain')) { vscode.commands.executeCommand('claudeBrain.exportTeamBrain'); }
     else if (picked.label.includes('Write to context')) { vscode.commands.executeCommand('claudeBrain.writeToContextFile'); }
     else if (picked.label.includes('Scan Workspace'))  { vscode.commands.executeCommand('claudeBrain.scanWorkspace'); }
     else if (picked.label.includes('Clear All'))       { vscode.commands.executeCommand('claudeBrain.clearAll'); }
@@ -242,6 +327,13 @@ export function activate(context: vscode.ExtensionContext): void {
   }
   .btn-close:hover { background: var(--vscode-button-secondaryHoverBackground, #4a4a4a); }
 
+  .btn-share {
+    background: none; color: #6ab0f5;
+    border-color: #2a4a6a;
+    margin-right: auto;
+  }
+  .btn-share:hover { background: #1a2a3a; }
+  .btn-share.shared { background: #1a2a3a; color: #4ecdc4; border-color: #2a5a5a; }
   .btn-forget {
     background: #5a1a1a; color: #ff8080;
     border-color: #7a2a2a;
@@ -277,14 +369,25 @@ export function activate(context: vscode.ExtensionContext): void {
   </div>
 
   <div class="card-footer">
+    <button class="btn-share ${memory.shared ? 'shared' : ''}" id="share-btn" onclick="toggleShare()">
+      ${memory.shared ? '✦ Shared' : '⬆ Share'}
+    </button>
     <button class="btn-close" onclick="closePanel()">Close</button>
     <button class="btn-forget" onclick="forget()">Forget</button>
   </div>
 </div>
 <script>
   const vscode = acquireVsCodeApi();
+  let isShared = ${memory.shared ? 'true' : 'false'};
   function forget() { vscode.postMessage({ type: 'forget' }); }
   function closePanel() { vscode.postMessage({ type: 'close' }); }
+  function toggleShare() {
+    isShared = !isShared;
+    vscode.postMessage({ type: 'toggleShare', shared: isShared });
+    const btn = document.getElementById('share-btn');
+    btn.textContent = isShared ? '✦ Shared' : '⬆ Share';
+    btn.classList.toggle('shared', isShared);
+  }
 </script>
 </body>
 </html>`;
@@ -296,6 +399,11 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showInformationMessage('Memory forgotten.');
       } else if (msg.type === 'close') {
         panel.dispose();
+      } else if (msg.type === 'toggleShare') {
+        store.update(memory.id, { shared: msg.shared });
+        vscode.window.showInformationMessage(
+          msg.shared ? 'Memory marked as shared — it will appear in Team Brain exports.' : 'Memory unshared.'
+        );
       }
     });
   }));
@@ -685,12 +793,26 @@ async function detectAndOfferContextFiles(
   const alreadyOffered = context.globalState.get<string[]>(offeredKey, []);
 
   const found: vscode.Uri[] = [];
+
+  // Check known context file patterns first (high-priority names)
   for (const pattern of CONTEXT_FILE_PATTERNS) {
     const uris = await vscode.workspace.findFiles(pattern, '**/node_modules/**', 1);
     for (const uri of uris) {
       if (!alreadyOffered.includes(uri.fsPath) && !found.some(f => f.fsPath === uri.fsPath)) {
         found.push(uri);
       }
+    }
+  }
+
+  // Also scan ALL .md files in the project (catches design docs, general docs, etc.)
+  const allMdUris = await vscode.workspace.findFiles(
+    '**/*.md',
+    '{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**}',
+    50
+  );
+  for (const uri of allMdUris) {
+    if (!alreadyOffered.includes(uri.fsPath) && !found.some(f => f.fsPath === uri.fsPath)) {
+      found.push(uri);
     }
   }
 

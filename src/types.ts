@@ -24,6 +24,7 @@ export interface Memory {
   updatedAt: string;        // ISO 8601
   source?: string;          // optional: which file / LLM this came from
   model?: string;           // optional: which model created this memory
+  shared?: boolean;         // marked for team brain export
 }
 
 export interface MemoryStats {
@@ -34,9 +35,16 @@ export interface MemoryStats {
   newestMemory: string | null;
 }
 
+export interface HealthScore {
+  score: number;      // 0–100
+  label: string;      // 'Empty' | 'Sparse' | 'Growing' | 'Healthy' | 'Excellent'
+  detail: string;     // human-readable breakdown
+}
+
 export interface MemoryState {
   memories: Memory[];
   stats: MemoryStats;
+  health: HealthScore;
   lastUpdated: string;
 }
 

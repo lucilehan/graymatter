@@ -109,6 +109,20 @@ export class BrainPanel {
         case 'writeToContextFile':
           vscode.commands.executeCommand('claudeBrain.writeToContextFile');
           break;
+        case 'seedSamples': {
+          if (this.store.getAll().length > 0) { break; }
+          const now = new Date().toISOString();
+          const samples: Memory[] = [
+            { id: crypto.randomUUID(), content: 'Design decisions are tracked in Architecture Decision Records (ADRs) under docs/adr/', summary: 'Architecture decisions tracked as ADRs in docs/adr/', region: 'frontal',    tags: ['architecture','adr','documentation'],       importance: 0.85, createdAt: now, updatedAt: now, source: 'sample' },
+            { id: crypto.randomUUID(), content: 'Use TypeScript strict mode project-wide — catches type errors early and reduces runtime bugs', summary: 'TypeScript strict mode is enabled project-wide', region: 'parietal',   tags: ['typescript','strict','tooling'],            importance: 0.80, createdAt: now, updatedAt: now, source: 'sample' },
+            { id: crypto.randomUUID(), content: 'Major milestone: migrated main API from REST to GraphQL in Q2 2024; all new endpoints use GraphQL', summary: 'API migrated from REST to GraphQL in Q2 2024',   region: 'temporal',   tags: ['graphql','api','milestone'],                importance: 0.80, createdAt: now, updatedAt: now, source: 'sample' },
+            { id: crypto.randomUUID(), content: 'Design system uses an 8px spacing grid, Inter typeface, and a dark palette with teal accents', summary: 'Design system: 8px grid, Inter font, teal on dark', region: 'occipital',  tags: ['design','ui','spacing','typography'],       importance: 0.70, createdAt: now, updatedAt: now, source: 'sample' },
+            { id: crypto.randomUUID(), content: 'Prefer small focused commits — one logical change per commit, conventional commits format', summary: 'Commit convention: small, focused, conventional commits', region: 'cerebellum', tags: ['git','commits','workflow','conventions'],    importance: 0.75, createdAt: now, updatedAt: now, source: 'sample' },
+            { id: crypto.randomUUID(), content: 'Prefer functional programming patterns — pure functions, immutability, and composable utilities over class-heavy OOP', summary: 'Prefer functional: pure functions, immutability, composition', region: 'limbic', tags: ['functional','style','preferences'],         importance: 0.75, createdAt: now, updatedAt: now, source: 'sample' },
+          ];
+          this.store.importMemories(samples);
+          break;
+        }
         case 'browseImportFile': {
           const uris = await vscode.window.showOpenDialog({
             filters: { 'Context files': ['md', 'txt', 'cursorrules'] },

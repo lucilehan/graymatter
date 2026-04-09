@@ -138,10 +138,27 @@ export class MemoryStore {
     };
   }
 
+  getHealthScore() {
+    const all = this.getAll();
+    if (!all.length) {
+      return { score: 0, label: 'Empty', detail: 'No memories yet' };
+    }
+    const stats = this.getStats();
+    const coveredRegions = Object.values(stats.byRegion).filter(n => n > 0).length;
+    const coverageScore = (coveredRegions / 6) * 40;
+    const importanceScore = stats.averageImportance * 30;
+    const volumeScore = Math.min(30, (Math.log(all.length + 1) / Math.log(51)) * 30);
+    const score = Math.round(coverageScore + importanceScore + volumeScore);
+    const label = score >= 80 ? 'Excellent' : score >= 60 ? 'Healthy' : score >= 40 ? 'Growing' : 'Sparse';
+    const detail = `${coveredRegions}/6 regions · ${Math.round(stats.averageImportance * 100)}% avg importance · ${all.length} memories`;
+    return { score, label, detail };
+  }
+
   getState(): MemoryState {
     return {
       memories: this.getAll(),
       stats: this.getStats(),
+      health: this.getHealthScore(),
       lastUpdated: new Date().toISOString()
     };
   }
@@ -185,7 +202,13 @@ export class MemoryStore {
 
   /** Import from GrayMatter's own JSON export format. */
   importFromJSON(json: string): number {
-    const data: Memory[] = JSON.parse(json);
+    let data: Memory[];
+    try {
+      const parsed = JSON.parse(json);
+      data = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      throw new Error('Invalid JSON: could not parse memory file.');
+    }
     let count = 0;
     for (const m of data) {
       const clean = sanitizeMemory(m);
@@ -204,13 +227,18 @@ export class MemoryStore {
    * Fires a single change event after all are added.
    */
   importMemories(items: Memory[]): number {
+    let count = 0;
     for (const m of items) {
-      this.memories.set(m.id, m);
+      const clean = sanitizeMemory(m);
+      if (clean) {
+        this.memories.set(clean.id, clean);
+        count++;
+      }
     }
-    if (items.length > 0) {
+    if (count > 0) {
       this.save();
       this._onDidChange.fire();
     }
-    return items.length;
+    return count;
   }
 }

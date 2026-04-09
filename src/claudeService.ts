@@ -76,10 +76,12 @@ Return JSON:
       const clean = text.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean);
 
+      const validRegions: BrainRegion[] = ['frontal','temporal','parietal','occipital','cerebellum','limbic'];
+      const region: BrainRegion = validRegions.includes(parsed.region) ? parsed.region : 'parietal';
       return {
-        region: parsed.region as BrainRegion,
+        region,
         summary: parsed.summary || content.slice(0, 80),
-        tags: parsed.tags || [],
+        tags: Array.isArray(parsed.tags) ? parsed.tags.filter((t: any) => typeof t === 'string') : [],
         importance: Math.max(0, Math.min(1, parsed.importance || 0.5))
       };
     } catch (err) {
@@ -105,7 +107,11 @@ Return JSON:
       region = 'limbic';
     }
 
-    const words = content.split(/\s+/).filter(w => w.length > 4).slice(0, 3);
+    const stopwords = new Set(['their','would','about','which','these','those','there','could','should','other','after','before','being','while','where','every','under','first','might','still','never','always','often','since','until','using','given','place','based','found','along','three','years','right','left','above','below','large','small','both','much','many','some','when','then','than','that','this','with','from','have','will','been','were','into','also','over','only','just','more','most','very','such','each','same','even']);
+    const words = content.split(/\s+/)
+      .map(w => w.toLowerCase().replace(/[^a-z]/g, ''))
+      .filter(w => w.length > 4 && !stopwords.has(w))
+      .slice(0, 3);
     return {
       region,
       summary: content.length > 80 ? content.slice(0, 77) + '...' : content,
