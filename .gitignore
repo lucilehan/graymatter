@@ -18,6 +18,9 @@ out/
 *.jpeg
 *.webp
 !media/icon.png
+!media/1-role.png
+!media/2-import.png
+!media/3-brain.png
 
 # Logs
 *.log
